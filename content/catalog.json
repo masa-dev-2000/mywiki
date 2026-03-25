@@ -1,0 +1,86 @@
+{
+  "entries": [
+    {
+      "id": "personal-wiki-claude-code",
+      "title": "個人Wiki × Claude Code — AIが自動で育てるナレッジベース",
+      "date": "2025-03-25",
+      "tags": ["AI", "PKM", "Claude Code", "Obsidian"],
+      "description": "Claude Codeのhooks機能で個人wikiを自動構築する方法。ツール比較、ワークフロー設計、将来展望まで。",
+      "status": "evergreen",
+      "path": "personal-wiki-claude-code/slides.html"
+    },
+    {
+      "id": "claude-code-productivity",
+      "title": "Claude Code 生産性向上ガイド",
+      "date": "2025-03-24",
+      "tags": ["AI", "Claude Code", "生産性"],
+      "description": "Claude Codeを使った開発生産性の最大化手法。",
+      "status": "fern",
+      "path": "claude-code-productivity/slides.html"
+    },
+    {
+      "id": "ai-enterprise-risks",
+      "title": "企業AI導入のリスクと対策",
+      "date": "2025-03-23",
+      "tags": ["AI", "ビジネス", "リスク管理"],
+      "description": "企業がAIを導入する際のリスク要因と実践的な対策フレームワーク。",
+      "status": "fern",
+      "path": "ai-enterprise-risks/slides.html"
+    },
+    {
+      "id": "ai-basics-90min-workshop",
+      "title": "AI基礎 90分ワークショップ",
+      "date": "2025-03-22",
+      "tags": ["AI", "教育", "ワークショップ"],
+      "description": "非エンジニア向けAI基礎知識を90分で学ぶワークショップ資料。",
+      "status": "evergreen",
+      "path": "ai-basics-90min-workshop/slides.html"
+    },
+    {
+      "id": "keiba-ai-development",
+      "title": "競馬AI開発プロジェクト",
+      "date": "2025-03-21",
+      "tags": ["AI", "機械学習", "競馬"],
+      "description": "機械学習を活用した競馬予測モデルの開発過程と知見。",
+      "status": "seed",
+      "path": "keiba-ai-development/slides.html"
+    },
+    {
+      "id": "oil-industry-structure",
+      "title": "石油業界の構造分析",
+      "date": "2025-03-20",
+      "tags": ["ビジネス", "エネルギー", "業界分析"],
+      "description": "石油業界のバリューチェーン、主要プレイヤー、市場動向の分析。",
+      "status": "fern",
+      "path": "oil-industry-structure/slides.html"
+    },
+    {
+      "id": "instagram-video-automation",
+      "title": "Instagram動画自動化",
+      "date": "2025-03-19",
+      "tags": ["SNS", "自動化", "マーケティング"],
+      "description": "Instagramリール動画の自動生成・投稿パイプライン構築。",
+      "status": "seed",
+      "path": "instagram-video-automation/slides.html"
+    },
+    {
+      "id": "claude-code-project-management",
+      "title": "Claude Codeでプロジェクト管理",
+      "date": "2025-03-18",
+      "tags": ["AI", "Claude Code", "プロジェクト管理"],
+      "description": "Claude Codeを活用したプロジェクト管理のベストプラクティス。",
+      "status": "fern",
+      "path": "claude-code-project-management/slides.html"
+    },
+    {
+      "id": "claude-code-agent-team",
+      "title": "Claude Codeエージェントチーム構築",
+      "date": "2025-03-17",
+      "tags": ["AI", "Claude Code", "エージェント"],
+      "description": "複数のClaude Codeエージェントをチームとして活用する手法。",
+      "status": "seed",
+      "path": "claude-code-agent-team/slides.html"
+    }
+  ],
+  "updatedAt": "2025-03-25T00:00:00Z"
+}
