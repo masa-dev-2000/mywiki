@@ -20,7 +20,7 @@ export default function SlugPage({ params }: { params: { slug: string } }) {
   if (!entry) {
     return (
       <div className="content-page">
-        <Link href="/mywiki/" className="back-nav">← トップに戻る</Link>
+        <Link href="/" className="back-nav">← トップに戻る</Link>
         <div className="empty-state">コンテンツが見つかりません</div>
       </div>
     );
@@ -28,7 +28,7 @@ export default function SlugPage({ params }: { params: { slug: string } }) {
 
   return (
     <div className="content-page">
-      <Link href="/mywiki/" className="back-nav">← トップに戻る</Link>
+      <Link href="/" className="back-nav">← トップに戻る</Link>
       <div className="content-meta">
         <h1>{entry.title}</h1>
         <div className="content-meta-info">

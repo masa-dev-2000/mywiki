@@ -34,7 +34,6 @@ export default function HomePage() {
             key={entry.id}
             entry={entry}
             isRead={readIds.includes(entry.id)}
-            basePath="/mywiki"
           />
         ))}
       </div>

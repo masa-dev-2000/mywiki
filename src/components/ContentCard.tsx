@@ -4,14 +4,13 @@ import { CatalogEntry } from '@/types/catalog';
 interface Props {
   entry: CatalogEntry;
   isRead: boolean;
-  basePath: string;
 }
 
-export default function ContentCard({ entry, isRead, basePath }: Props) {
+export default function ContentCard({ entry, isRead }: Props) {
   const statusEmoji = { seed: '🌱', fern: '🌿', evergreen: '🌳' }[entry.status];
 
   return (
-    <Link href={`${basePath}/${entry.id}/`} className="card content-card">
+    <Link href={`/${entry.id}/`} className="card content-card">
       <div className="card-header">
         <span className="card-status">{statusEmoji}</span>
         <span className="card-date">{entry.date}</span>

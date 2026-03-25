@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ja">
       <body>
         <header className="header">
-          <h1><Link href="/mywiki/">📚 MyWiki</Link></h1>
+          <h1><Link href="/">📚 MyWiki</Link></h1>
           <ThemeToggle />
         </header>
         <main>{children}</main>
