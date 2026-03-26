@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Codeエージェントチーム構築</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- パンくず -- */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* -- レイアウト -- */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* -- サイドバー目次（右側・折りたたみ） -- */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* -- ヘッダー -- */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* -- セクション -- */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* -- TL;DR -- */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* -- 引用・注意 -- */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* -- リスト -- */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* -- テーブル -- */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* -- コードブロック -- */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* -- Mermaid図 -- */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* -- タグ -- */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* -- ステップ -- */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* -- インライン出典 -- */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* -- 出典 -- */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* -- クイズ -- */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* -- フッター -- */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* -- 印刷 -- */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  Claude Code エージェントチーム構築
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#architecture">6層拡張アーキテクチャ</a></li>
+    <li><a href="#agent-teams">Agent Teams</a></li>
+    <li><a href="#cowork">Claude Cowork</a></li>
+    <li><a href="#cross-themes">横断テーマ</a></li>
+    <li><a href="#timeline">進化タイムライン</a></li>
+    <li><a href="#roadmap">導入ロードマップ</a></li>
+    <li><a href="#sources">出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>Claude Codeエージェントチーム構築</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約15分で読める</span>
+  </p>
+  <div>
+    <span class="tag">Claude Code</span>
+    <span class="tag">Agent Teams</span>
+    <span class="tag">マルチエージェント</span>
+    <span class="tag">Claude Cowork</span>
+    <span class="tag">MCP</span>
+  </div>
+</header>
+
+<!-- -- TL;DR -- -->
+<section class="tldr" id="tldr">
+  <h2>TL;DR</h2>
+  <p>Anthropicは Claude Code を、Skills・MCP・Subagents・Agent Teams・Hooks・Pluginsの<strong>6層拡張アーキテクチャ</strong>を持つ汎用AIエージェントプラットフォームへ進化させた。さらに「Agent Teams」で複数エージェントが議論・協調する並列開発を実現し、「Claude Cowork」で非開発者にも同じ体験を提供している。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a></p>
+</section>
+
+<!-- -- 6層アーキテクチャ -- -->
+<section id="architecture">
+  <h2>6層拡張アーキテクチャ</h2>
+
+  <p>Claude Codeは単なるコーディングアシスタントではない。6つの拡張レイヤーにより、あらゆる開発ワークフローをカスタマイズ可能なプラットフォームへと変貌した。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a></p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+graph TB
+    subgraph always["常時ON"]
+      A["CLAUDE.md<br/>永続コンテキスト<br/>~500行推奨"]
+    end
+    subgraph ondemand["オンデマンド"]
+      B["Skills<br/>SKILL.md<br/>スラッシュコマンド起動"]
+    end
+    subgraph external["外部接続"]
+      C["MCP<br/>DB・Slack・ブラウザ等<br/>標準プロトコル"]
+    end
+    subgraph parallel["並列処理"]
+      D["Subagents<br/>隔離コンテキスト<br/>結果サマリーのみ返却"]
+      E["Agent Teams<br/>直接通信・協調<br/>共有タスクリスト"]
+    end
+    subgraph automation["自動化"]
+      F["Hooks<br/>ライフサイクルイベント<br/>LLM不要・コスト0"]
+    end
+    subgraph distribution["配布"]
+      G["Plugins<br/>Skills+Hooks+MCP<br/>マーケットプレイス"]
+    end
+
+    always --> ondemand --> external --> parallel --> automation --> distribution
+
+    style always fill:#dbeafe,stroke:#3b82f6
+    style ondemand fill:#dcfce7,stroke:#22c55e
+    style external fill:#fef3c7,stroke:#f59e0b
+    style parallel fill:#fce7f3,stroke:#ec4899
+    style automation fill:#f3e8ff,stroke:#a855f7
+    style distribution fill:#e0e7ff,stroke:#6366f1
+    </pre>
+    <p class="diagram-caption">図1: Claude Code 6層拡張アーキテクチャの階層構造</p>
+  </div>
+
+  <h3>各レイヤーの役割</h3>
+
+  <table>
+    <thead>
+      <tr><th>レイヤー</th><th>役割</th><th>コンテキストコスト</th><th>特徴</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>CLAUDE.md</strong></td><td>永続コンテキスト</td><td>常時読込</td><td>プロジェクト規約、ビルドコマンド等を自動ロード</td></tr>
+      <tr><td><strong>Skills</strong></td><td>オンデマンド知識</td><td>低</td><td>SKILL.mdファイル。スラッシュコマンドで起動<a class="cite" href="#src2">2<span class="cite-tooltip">Anthropic — Skills ドキュメント</span></a></td></tr>
+      <tr><td><strong>MCP</strong></td><td>外部サービス接続</td><td>ツール検索10%</td><td>DB、Slack、ブラウザ等の標準プロトコル<a class="cite" href="#src3">3<span class="cite-tooltip">MCP（Model Context Protocol）仕様</span></a></td></tr>
+      <tr><td><strong>Subagents</strong></td><td>並列実行</td><td>隔離</td><td>子エージェント。結果サマリーのみ親に返す。ネスト不可</td></tr>
+      <tr><td><strong>Hooks</strong></td><td>自動化</td><td>0</td><td>ライフサイクルイベント反応。LLM不要の決定論的スクリプト<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Hooks 公式ドキュメント</span></a></td></tr>
+      <tr><td><strong>Plugins</strong></td><td>配布</td><td>可変</td><td>Skills+Hooks+MCP+Subagentsを1パッケージにバンドル</td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>各レイヤーは独立して使えるが、組み合わせることで威力が倍増する。例えばSkill + MCPで「DB知識」と「DB接続」を統合すれば、データベース操作のワークフローを一気に自動化できる。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a></p>
+  </blockquote>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>Claude Codeの6層アーキテクチャで、コンテキストコストが「0」のレイヤーはどれ？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">Skills（SKILL.mdファイル）</li>
+      <li data-idx="1">Hooks（ライフサイクルイベント反応）</li>
+      <li data-idx="2">MCP（外部サービス接続）</li>
+    </ul>
+    <div class="quiz-explain">HooksはLLMを使わない決定論的スクリプトのため、コンテキストコストは完全にゼロです。自動化レイヤーとして最もコスト効率が高い選択肢です。</div>
+  </div>
+</section>
+
+<!-- -- Agent Teams -- -->
+<section id="agent-teams">
+  <h2>Agent Teams ― 協調するマルチエージェント</h2>
+
+  <p>Agent Teamsは、独立したClaude Codeセッション同士が<strong>直接通信・協調</strong>することで、Subagentsでは不可能だった「議論・挑戦・合意形成」を実現する仕組みだ。<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a></p>
+
+  <h3>SubagentsとAgent Teamsの決定的な違い</h3>
+
+  <table>
+    <thead>
+      <tr><th>観点</th><th>Subagents</th><th>Agent Teams</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>通信</strong></td><td>結果を親に返すのみ</td><td>チームメイト間で直接メッセージ</td></tr>
+      <tr><td><strong>メタファー</strong></td><td>独立した作業者</td><td>協調するチーム</td></tr>
+      <tr><td><strong>タスク管理</strong></td><td>親が割り当て</td><td>共有タスクリスト + 自己調整</td></tr>
+      <tr><td><strong>相互通信</strong></td><td>なし</td><td>Mailboxで双方向</td></tr>
+      <tr><td><strong>品質ゲート</strong></td><td>なし</td><td>Hooksで自動チェック</td></tr>
+    </tbody>
+  </table>
+
+  <h3>アーキテクチャと設定</h3>
+
+  <p>Agent Teamsは<strong>Team Lead + Teammates + 共有タスクリスト + Mailbox</strong>で構成される。<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a> 有効化には環境変数の設定が必要だ:</p>
+
+  <pre><code>// settings.json に追加
+CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
+// 要件: Claude Code v2.1.32 以上</code></pre>
+
+  <p>表示モードは2種類ある:</p>
+  <ul>
+    <li><strong>in-process</strong>: Shift+Down でチームメイト間を切り替え</li>
+    <li><strong>split-pane</strong>: tmux/iTerm2 で各エージェントを並列表示</li>
+  </ul>
+
+  <h3>タスク管理と品質ゲート</h3>
+
+  <p>タスクは <code>pending</code> → <code>in_progress</code> → <code>completed</code> のフローで管理され、依存関係の自動解決やファイルロック競合防止機能を備える。<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a></p>
+
+  <p>推奨構成は<strong>3-5チームメイト、1人あたり5-6タスク</strong>。品質ゲートとして <code>TeammateIdle</code> / <code>TaskCompleted</code> Hooksで自動チェックを組み込める。</p>
+
+  <h3>最適なユースケース</h3>
+
+  <ul>
+    <li><strong>並列コードレビュー</strong>: Security / Performance / Tests を別々のエージェントが同時にレビュー</li>
+    <li><strong>競合仮説デバッグ</strong>: 複数のエージェントが異なる仮説を同時に検証</li>
+    <li><strong>クロスレイヤー開発</strong>: フロントエンド・バックエンド・インフラを並列で開発</li>
+  </ul>
+
+  <div class="warn">
+    <strong>注意</strong>: Agent Teamsは実験的機能（experimental）。セッション復旧不可、ネストチーム不可、リーダー固定という制限がある。本番利用には注意が必要。<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a>
+  </div>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>Agent TeamsがSubagentsより優れている点として、最も重要なものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">実行速度が速い</li>
+      <li data-idx="1">コンテキストコストが低い</li>
+      <li data-idx="2">チームメイト間で直接通信し、議論・合意形成ができる</li>
+    </ul>
+    <div class="quiz-explain">Agent Teamsの決定的な違いは「相互通信」。Subagentsは結果を親に返すだけの一方通行だが、Agent TeamsはMailboxを通じた双方向コミュニケーションで議論・挑戦・合意形成が可能になります。</div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>Agent Teamsの推奨構成として正しいのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">1-2チームメイト、1人10タスク以上</li>
+      <li data-idx="1">3-5チームメイト、1人5-6タスク</li>
+      <li data-idx="2">10人以上のチームメイトで大規模並列</li>
+    </ul>
+    <div class="quiz-explain">推奨は3-5チームメイト、1人あたり5-6タスクです。チームメイト数が多すぎるとトークンコストが比例して増大し、コスト効率が悪化します。</div>
+  </div>
+</section>
+
+<!-- -- Claude Cowork -- -->
+<section id="cowork">
+  <h2>Claude Cowork ― 全知識労働者へのエージェント拡張</h2>
+
+  <p>Claude CoworkはClaude Codeと同じエージェントアーキテクチャを<strong>非開発者</strong>に提供するプロダクトだ。ターミナル不要で、Claude Desktop内のVM環境で動作する。<a class="cite" href="#src6">6<span class="cite-tooltip">Anthropic — Claude Cowork リサーチプレビュー</span></a></p>
+
+  <h3>23+のプラグインエコシステム</h3>
+
+  <p>プラグインは Skills + Slash Commands + MCP Connectors + Sub-agents を統合したパッケージだ。以下の業務ドメインをカバーする:</p>
+
+  <table>
+    <thead>
+      <tr><th>カテゴリ</th><th>対象分野</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Productivity</strong></td><td>汎用的な生産性向上</td></tr>
+      <tr><td><strong>Enterprise Search</strong></td><td>企業内情報検索</td></tr>
+      <tr><td><strong>Sales / Finance</strong></td><td>営業・財務分析</td></tr>
+      <tr><td><strong>Data / Legal</strong></td><td>データ分析・法務</td></tr>
+      <tr><td><strong>Marketing / Support</strong></td><td>マーケティング・カスタマーサポート</td></tr>
+      <tr><td><strong>Product / Biology</strong></td><td>プロダクト管理・生物学研究</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Dispatch と Computer Use</h3>
+
+  <p><strong>Dispatch</strong>はiPhoneからタスクを指示し、Mac上のClaudeが実行する機能。連続的な会話スレッドで結果を受け取れる。<a class="cite" href="#src6">6<span class="cite-tooltip">Anthropic — Claude Cowork リサーチプレビュー</span></a></p>
+
+  <p><strong>Computer Use</strong>（2026年3月、macOS研究プレビュー）は、デスクトップアプリ・ブラウザ・スプレッドシートをAIが直接操作する機能。ただしセキュリティリスクを伴うため権限管理への注意が必要だ。<a class="cite" href="#src7">7<span class="cite-tooltip">Anthropic — Computer Use ドキュメント</span></a></p>
+
+  <div class="warn">
+    <strong>注意</strong>: Claude Coworkはリサーチプレビュー段階。監査ログ未対応でセッション共有不可のため、規制ワークロードには不適。利用にはPro/Max/Team/Enterpriseプランが必要。
+  </div>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="0">
+    <h4>理解チェック</h4>
+    <p>Claude CoworkとClaude Codeの最も大きな違いは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">ターミナル不要で非開発者が使える</li>
+      <li data-idx="1">プラグイン数が多い</li>
+      <li data-idx="2">無料で使える</li>
+    </ul>
+    <div class="quiz-explain">Claude Coworkはターミナル操作が不要で、Claude Desktop内のVM環境で動作します。これにより法務・営業・マーケティングなどの非開発者にもエージェント体験を提供できます。</div>
+  </div>
+</section>
+
+<!-- -- 横断テーマ -- -->
+<section id="cross-themes">
+  <h2>横断テーマ ― エコシステム全体を貫く設計思想</h2>
+
+  <h3>階層的な拡張設計</h3>
+
+  <p>Claude Codeのアーキテクチャは、常時ON（CLAUDE.md）からオンデマンド（Skills）、外部接続（MCP）、並列処理（Subagents/Agent Teams）、自動化（Hooks）、配布（Plugins）へと段階的に拡張できる設計になっている。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a></p>
+
+  <h3>コンテキスト管理の最適化</h3>
+
+  <p>各機能がコンテキストコストを意識して設計されている点は注目に値する。Skillsは低コスト、Hooksはゼロコスト、Subagentsは隔離コンテキストで動作する。トークンコストがチームサイズに比例するAgent Teamsでは、コスト最適化戦略の策定が重要になる。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a><a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a></p>
+
+  <h3>2026年3月の機能爆発</h3>
+
+  <p>2026年3月は Claude Code にとって転換期だ。以下の機能が一斉に登場した:</p>
+
+  <ul>
+    <li><strong>/loop</strong>: 定期実行コマンド</li>
+    <li><strong>Voice Mode</strong>: 音声による操作</li>
+    <li><strong>Remote Control</strong>: モバイルからターミナル操作</li>
+    <li><strong>Background Agents</strong>: 非同期並列処理</li>
+    <li><strong>Computer Use</strong>: デスクトップ制御<a class="cite" href="#src7">7<span class="cite-tooltip">Anthropic — Computer Use ドキュメント</span></a></li>
+    <li><strong>Auto Dream</strong>: プロジェクト知識の自動整理<a class="cite" href="#src8">8<span class="cite-tooltip">Claude Code AutoMemory ドキュメント</span></a></li>
+    <li><strong>1Mトークンコンテキスト</strong>: 大規模コンテキストウィンドウ</li>
+  </ul>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>Claude Codeの各拡張レイヤーにおいて、コンテキスト管理の設計方針として正しいのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">全てのレイヤーが同じコンテキストコストで動作する</li>
+      <li data-idx="1">外部サービス接続（MCP）のコンテキストコストが最も低い</li>
+      <li data-idx="2">各レイヤーがコスト意識して設計されており、Hooksはゼロ、Subagentsは隔離で動作する</li>
+    </ul>
+    <div class="quiz-explain">Claude Codeの設計思想として、各レイヤーのコンテキストコストが最適化されています。Hooksは決定論的スクリプトでLLM不要（コスト0）、Subagentsは隔離コンテキストで動作し親のコンテキストを消費しません。</div>
+  </div>
+</section>
+
+<!-- -- タイムライン -- -->
+<section id="timeline">
+  <h2>進化タイムライン</h2>
+
+  <table>
+    <thead>
+      <tr><th>時期</th><th>マイルストーン</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>2025年2月</strong></td><td>Claude Code 初期リリース</td></tr>
+      <tr><td><strong>2025年10月</strong></td><td>Skills 導入<a class="cite" href="#src2">2<span class="cite-tooltip">Anthropic — Skills ドキュメント</span></a></td></tr>
+      <tr><td><strong>2025年後半</strong></td><td>MCP、Agent SDK、Subagents<a class="cite" href="#src3">3<span class="cite-tooltip">MCP（Model Context Protocol）仕様</span></a></td></tr>
+      <tr><td><strong>2026年1月</strong></td><td>Claude Cowork リサーチプレビュー開始<a class="cite" href="#src6">6<span class="cite-tooltip">Anthropic — Claude Cowork リサーチプレビュー</span></a></td></tr>
+      <tr><td><strong>2026年1月30日</strong></td><td>Cowork プラグイン11種リリース</td></tr>
+      <tr><td><strong>2026年2月5日</strong></td><td>Opus 4.6 + Agent Teams 導入<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a></td></tr>
+      <tr><td><strong>2026年2月24日</strong></td><td>Cowork プラグイン追加12種（計23種）</td></tr>
+      <tr><td><strong>2026年3月</strong></td><td>/loop、Voice Mode、Remote Control、Background Agents、Computer Use、Auto Dream、1Mトークン</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- -- 導入ロードマップ -- -->
+<section id="roadmap">
+  <h2>導入ロードマップ</h2>
+
+  <p>段階的に導入することで、リスクを抑えながらエージェントチームの恩恵を受けられる。</p>
+
+  <ol class="steps">
+    <li><strong>Step 1: 基盤整備</strong> — CLAUDE.md + Skills でプロジェクト知識を整備する。まずはAIが参照できる永続コンテキストの土台を作る。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic — Claude Code 公式ドキュメント</span></a></li>
+    <li><strong>Step 2: 外部接続</strong> — MCPで業務ツール（DB、Slack、GitHub等）を接続する。AIが外部データにアクセスできる環境を構築。<a class="cite" href="#src3">3<span class="cite-tooltip">MCP（Model Context Protocol）仕様</span></a></li>
+    <li><strong>Step 3: 小規模並列</strong> — Subagentsで小規模な並列処理を試行する。単純な分割統治パターンで効果を検証。</li>
+    <li><strong>Step 4: チーム編成</strong> — Agent Teamsで大規模な探索・レビュータスクに挑戦する。並列コードレビューや競合仮説デバッグを試す。<a class="cite" href="#src5">5<span class="cite-tooltip">Claude Code Agent Teams 公式ガイド</span></a></li>
+    <li><strong>Step 5: 組織展開</strong> — Coworkのプラグインで非開発チームへの展開を検討する。法務・営業・マーケティングチームへの導入。<a class="cite" href="#src6">6<span class="cite-tooltip">Anthropic — Claude Cowork リサーチプレビュー</span></a></li>
+  </ol>
+
+  <div class="warn">
+    <strong>コスト面の留意点</strong>: Agent Teamsではトークンコストがチームサイズに比例して増大する。まずは3人チームで小さく始め、効果を測定してから拡大するのが賢明。
+  </div>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="1">
+    <h4>総まとめクイズ</h4>
+    <p>Claude Codeエージェントチーム導入で最初に行うべきステップは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">いきなりAgent Teamsを有効化して大規模並列処理を試す</li>
+      <li data-idx="1">CLAUDE.md + Skills でプロジェクト知識の基盤を整備する</li>
+      <li data-idx="2">Claude Coworkを全社展開する</li>
+    </ul>
+    <div class="quiz-explain">段階的な導入が重要です。まずCLAUDE.md + Skillsで基盤を整備し、MCP接続、Subagents試行を経てからAgent Teamsに進むのが推奨される導入パスです。</div>
+  </div>
+</section>
+
+<!-- -- 出典 -- -->
+<section class="sources" id="sources">
+  <h2>出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank" rel="noopener">Anthropic — Claude Code 公式ドキュメント</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://docs.anthropic.com/en/docs/claude-code/skills" target="_blank" rel="noopener">Anthropic — Skills ドキュメント</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">MCP（Model Context Protocol）仕様</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://docs.anthropic.com/en/docs/claude-code/hooks" target="_blank" rel="noopener">Claude Code Hooks 公式ドキュメント</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://docs.anthropic.com/en/docs/claude-code/agent-teams" target="_blank" rel="noopener">Claude Code Agent Teams 公式ガイド</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://www.anthropic.com/research/claude-cowork" target="_blank" rel="noopener">Anthropic — Claude Cowork リサーチプレビュー</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://docs.anthropic.com/en/docs/computer-use" target="_blank" rel="noopener">Anthropic — Computer Use ドキュメント</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://docs.anthropic.com/en/docs/claude-code/memory" target="_blank" rel="noopener">Claude Code AutoMemory ドキュメント</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

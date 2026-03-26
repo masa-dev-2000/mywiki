@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>競馬AI開発プロジェクト</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- パンくず -- */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* -- レイアウト -- */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* -- サイドバー目次（右側・折りたたみ） -- */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* -- ヘッダー -- */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* -- セクション -- */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* -- TL;DR -- */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* -- 引用・注意 -- */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* -- リスト -- */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* -- テーブル -- */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* -- コードブロック -- */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* -- Mermaid図 -- */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* -- タグ -- */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* -- ステップ -- */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* -- インライン出典 -- */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* -- 出典 -- */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* -- クイズ -- */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* -- フッター -- */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* -- 印刷 -- */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  競馬AI開発プロジェクト
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">💡 TL;DR</a></li>
+    <li><a href="#data-pipeline">🗄️ データパイプライン</a></li>
+    <li><a href="#feature-engineering">🔧 特徴量エンジニアリング</a></li>
+    <li><a href="#betting-strategy">💰 馬券戦略</a></li>
+    <li><a href="#pitfalls">⚠️ 技術的落とし穴</a></li>
+    <li><a href="#cross-themes">🔗 横断テーマ</a></li>
+    <li><a href="#action-plan">🚀 推奨アクション</a></li>
+    <li><a href="#sources">📚 出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>競馬AI開発プロジェクト</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約12分で読める</span>
+  </p>
+  <div>
+    <span class="tag">機械学習</span>
+    <span class="tag">競馬</span>
+    <span class="tag">LightGBM</span>
+    <span class="tag">データ分析</span>
+    <span class="tag">期待値</span>
+  </div>
+</header>
+
+<!-- -- TL;DR -- -->
+<section class="tldr" id="tldr">
+  <h2>💡 TL;DR</h2>
+  <p>競馬予想AIの勝敗は「モデルの選択」ではなく<strong>「データの質 × 特徴量設計 × 資金管理」の三位一体</strong>で決まる。回収率100%超えの壁を越えるには、的中率ではなくオッズとの期待値比較が不可欠である。<a class="cite" href="#src1">1<span class="cite-tooltip">JRA-VAN Data Lab 公式サイト</span></a></p>
+</section>
+
+<!-- -- データパイプライン -- -->
+<section id="data-pipeline">
+  <h2>🗄️ データパイプラインが土台 — JRA-VAN Data Labが最適解</h2>
+
+  <p>AIの精度はデータの質と量で決まる。個人開発者にとって最もコスト効率の良い公式データソースは<strong>JRA-VAN Data Lab</strong>だ。月額2,090円で1986年以降の全公式データ（馬体重、タイム、血統、坂路調教、リアルタイムオッズ）にアクセスできる。<a class="cite" href="#src1">1<span class="cite-tooltip">JRA-VAN Data Lab 公式サイト</span></a></p>
+
+  <p>技術的には、JV-Link（ActiveX COM制御）を経由してPythonからデータを取得できる。また、PC-KEIBA DatabaseでSQL操作も可能なため、データの整備・前処理がしやすい。<a class="cite" href="#src2">2<span class="cite-tooltip">PC-KEIBA Database 公式ドキュメント</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>データソース</th><th>コスト</th><th>データ品質</th><th>法的リスク</th><th>特徴</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>JRA-VAN Data Lab</strong></td><td>月額2,090円</td><td>公式・最高品質</td><td>なし</td><td>1986年～全データ、リアルタイムオッズ</td></tr>
+      <tr><td>netkeiba</td><td>基本無料</td><td>高品質</td><td>スクレイピング禁止</td><td>Webベース、利用規約に注意</td></tr>
+      <tr><td>JRDB</td><td>有料会員制</td><td>独自データ</td><td>なし</td><td>パドック指数・調教指数・馬場バイアス</td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>初心者はまずJRA-VANの1ヶ月無料体験で始め、PC-KEIBA DatabaseでSQLからデータを整備するのが最短ルートである。<a class="cite" href="#src1">1<span class="cite-tooltip">JRA-VAN Data Lab 公式サイト</span></a></p>
+  </blockquote>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph datasource["📊 データソース"]
+      JRA["JRA-VAN Data Lab<br/>月額2,090円"]
+      JRDB["JRDB<br/>独自指数"]
+    end
+
+    subgraph pipeline["🔄 データパイプライン"]
+      JVL["JV-Link<br/>ActiveX COM"]
+      SQL["PC-KEIBA Database<br/>SQL操作"]
+      PY["Python<br/>pandas/numpy"]
+    end
+
+    subgraph model["🤖 モデル構築"]
+      FE["特徴量エンジニアリング<br/>約480特徴量"]
+      LGBM["LightGBM<br/>LambdaRank"]
+      EV["期待値計算<br/>オッズ比較"]
+    end
+
+    subgraph output["🎯 出力"]
+      BET["馬券購入判断"]
+      KELLY["ケリー基準<br/>資金配分"]
+    end
+
+    JRA --> JVL
+    JRDB --> PY
+    JVL --> SQL
+    SQL --> PY
+    PY --> FE
+    FE --> LGBM
+    LGBM --> EV
+    EV --> BET
+    BET --> KELLY
+
+    style datasource fill:#eff6ff,stroke:#3b82f6
+    style pipeline fill:#f0fdf4,stroke:#22c55e
+    style model fill:#fef3c7,stroke:#f59e0b
+    style output fill:#fce7f3,stroke:#ec4899
+    </pre>
+    <p class="diagram-caption">図1: 競馬AI開発の全体アーキテクチャ — データ取得からベッティングまで</p>
+  </div>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>Q1. 個人開発者にとって最もコスト効率の良い競馬公式データソースは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">netkeibaのスクレイピング</li>
+      <li data-idx="1">JRA-VAN Data Lab（月額2,090円）</li>
+      <li data-idx="2">JRAの公式Webサイトから手動コピー</li>
+    </ul>
+    <div class="quiz-explain">✅ JRA-VAN Data Labは月額2,090円で1986年以降の全公式データにアクセスできる最もコスト効率の良い選択肢です。netkeibaのスクレイピングは利用規約で禁止されており法的リスクがあります。</div>
+  </div>
+
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>Q2. netkeibaからのスクレイピングを避けるべき主な理由は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">データの品質が低いから</li>
+      <li data-idx="1">有料会員でないとアクセスできないから</li>
+      <li data-idx="2">利用規約でスクレイピングが禁止されており、法的リスクがあるから</li>
+    </ul>
+    <div class="quiz-explain">✅ netkeibaは基本無料でデータ品質も高いですが、利用規約でスクレイピングが明示的に禁止されています。法的リスクを考慮し、JRA-VANなどの公式データソースを使うべきです。</div>
+  </div>
+</section>
+
+<!-- -- 特徴量エンジニアリング -- -->
+<section id="feature-engineering">
+  <h2>🔧 特徴量エンジニアリングがモデル精度の鍵</h2>
+
+  <p>競馬AI開発において、アルゴリズム選択よりも<strong>前処理と特徴量設計</strong>がモデルの精度を支配する。ニューラルネットとLightGBMで前処理が同じ場合、AUC（予測精度の指標）はほぼ変わらないという実験結果がある。<a class="cite" href="#src3">3<span class="cite-tooltip">競馬AI実装ベストプラクティス — Qiita</span></a></p>
+
+  <h3>重要な特徴量カテゴリ</h3>
+
+  <p>実績あるシステムでは<strong>約480の特徴量</strong>を使用している。主要なカテゴリは以下の通り：<a class="cite" href="#src4">4<span class="cite-tooltip">競馬予想AI 特徴量設計ガイド</span></a></p>
+
+  <ul>
+    <li><strong>スピード指数</strong>: 走破タイムを距離・馬場差で補正した数値。異なる条件のレースを横断的に比較可能にする</li>
+    <li><strong>上がり3ハロン</strong>: 最後600mのタイム。馬の末脚（ラストスパート能力）を示す極めて重要な指標</li>
+    <li><strong>状況変化</strong>: 距離短縮/延長、斤量変化、休み明け、騎手乗り替わりなど、前走との差分情報</li>
+    <li><strong>外部要因</strong>: 馬場状態（良/稍重/重/不良）、クッション値、トラックバイアス（内枠有利・外枠有利）</li>
+  </ul>
+
+  <h3>LightGBMがデファクトスタンダードである理由</h3>
+
+  <p>LightGBMは勾配ブースティング決定木（GBDT）の実装で、以下の理由から競馬AI開発の実務標準となっている：<a class="cite" href="#src3">3<span class="cite-tooltip">競馬AI実装ベストプラクティス — Qiita</span></a></p>
+
+  <ul>
+    <li><strong>高速な学習</strong>: 大量の特徴量でも実用的な速度で学習可能</li>
+    <li><strong>ランキング学習</strong>: LambdaRankによりレース全体の順位予測に対応</li>
+    <li><strong>欠損値の自動処理</strong>: 競馬データに多い欠損値を自然に扱える</li>
+    <li><strong>特徴量重要度の可視化</strong>: どの特徴量が予測に寄与しているか解釈可能</li>
+  </ul>
+
+  <div class="warn">
+    <strong>ドメイン知識が最終的な競争力</strong>: モデル選びに時間をかけるより、競馬の知識を活かした特徴量設計に注力すべき。アルゴリズム間の精度差は小さいが、特徴量の質の差は大きい。<a class="cite" href="#src4">4<span class="cite-tooltip">競馬予想AI 特徴量設計ガイド</span></a>
+  </div>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>Q3. 競馬AI開発でモデル精度を最も左右する要素は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">特徴量エンジニアリング（前処理と特徴量設計）</li>
+      <li data-idx="1">アルゴリズムの選択（LightGBM vs ニューラルネット）</li>
+      <li data-idx="2">学習データの量（多ければ多いほど良い）</li>
+    </ul>
+    <div class="quiz-explain">✅ 前処理が同じならLightGBMとニューラルネットのAUCはほぼ変わりません。差を生むのは特徴量の質と前処理の丁寧さ、つまりドメイン知識の数値化能力です。</div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>Q4. 「上がり3ハロン」とは何を示す指標か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">スタートから最初の600mのタイム</li>
+      <li data-idx="1">レース最後の600mのタイムで、馬の末脚（ラストスパート能力）を示す</li>
+      <li data-idx="2">3レース前からの平均走破タイム</li>
+    </ul>
+    <div class="quiz-explain">✅ 上がり3ハロンはレースの最後600m（3ハロン = 約600m）のタイムを指し、馬のラストスパート能力を示す重要な指標です。</div>
+  </div>
+</section>
+
+<!-- -- 馬券戦略 -- -->
+<section id="betting-strategy">
+  <h2>💰 期待値ベースの馬券戦略</h2>
+
+  <p>的中率が高くても回収率100%を超えるとは限らない。これは多くの競馬AI開発者が陥る最大の誤解だ。2024年AIコンペ1位の回収率が48.32%にとどまった事実がそれを証明している。<a class="cite" href="#src5">5<span class="cite-tooltip">2024年 競馬AIコンペティション結果</span></a></p>
+
+  <h3>期待値の基本式</h3>
+
+  <p>期待値ベースの戦略は極めてシンプルだ：</p>
+
+  <blockquote>
+    <p><strong>期待値 = 的中確率 × オッズ</strong><br>この値が1.0を超える馬のみを購入するのが理論上の最強戦略。<a class="cite" href="#src6">6<span class="cite-tooltip">ケリー基準と最適資金管理 — 数学的アプローチ</span></a></p>
+  </blockquote>
+
+  <p>つまり重要なのは「当てる」ことではなく、<strong>「期待値が正の馬券を買い続ける」</strong>という発想の転換だ。一方で、単勝専用モデルで回収率160.8%（的中率26.3%）を達成した個人事例も存在しており、正しいアプローチなら壁を越えることは不可能ではない。<a class="cite" href="#src7">7<span class="cite-tooltip">単勝AI回収率160%達成の実践レポート</span></a></p>
+
+  <h3>ケリー基準による資金管理</h3>
+
+  <p>期待値が正の馬券を見つけても、1レースに全額投じれば破産リスクがある。<strong>ケリー基準</strong>は数学的に最適な賭け金を計算する手法だ：<a class="cite" href="#src6">6<span class="cite-tooltip">ケリー基準と最適資金管理 — 数学的アプローチ</span></a></p>
+
+  <pre><code># ケリー基準の基本式
+最適賭け金 = エッジ / オッズ
+
+# 例: 的中確率30%、オッズ4.0倍の場合
+エッジ = (0.30 × 4.0) - 1.0 = 0.20
+最適賭け金 = 0.20 / 4.0 = 5% (資金の5%)
+
+# 実務ではハーフケリー（半分）を推奨
+# → 2.5% を賭ける（ドローダウン耐性を確保）</code></pre>
+
+  <p>回収率100%超のAIでも長期運用には大きなドローダウン（一時的な資金減少）への耐性が必要。感情を排除し、数学的に正しいベッティングを続ける規律が求められる。</p>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>Q5. 的中率50%のAIモデルがあれば必ず利益が出る？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">はい、的中率50%なら確実に利益が出る</li>
+      <li data-idx="1">オッズが2.0倍以上あれば利益が出る</li>
+      <li data-idx="2">いいえ、的中率だけでは判断できず、期待値（的中確率×オッズ）が1.0を超える馬券のみ購入する必要がある</li>
+    </ul>
+    <div class="quiz-explain">✅ 的中率が高くても、人気馬ばかり当てていればオッズが低く回収率は100%を下回ります。重要なのは「期待値 = 的中確率 × オッズ」が1.0を超える馬券のみを購入し続けることです。</div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>Q6. ケリー基準の実務での推奨運用方法は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">計算通りのフルケリーで賭ける</li>
+      <li data-idx="1">ハーフケリー（計算値の半分）で賭けてドローダウン耐性を確保する</li>
+      <li data-idx="2">固定金額で毎回同じ額を賭ける</li>
+    </ul>
+    <div class="quiz-explain">✅ フルケリーは理論上最適ですが、現実には予測精度の誤差やドローダウンリスクがあるため、ハーフケリー（計算値の半分）で運用するのが推奨されます。</div>
+  </div>
+</section>
+
+<!-- -- 技術的落とし穴 -- -->
+<section id="pitfalls">
+  <h2>⚠️ 技術的落とし穴 — データリークと過学習</h2>
+
+  <p>競馬AI開発で最も致命的な失敗は<strong>データリーク</strong>だ。例えば「生涯成績」などの未来情報を特徴量に含めてしまうと、バックテストでは好成績が出るが実運用では崩壊する。<a class="cite" href="#src8">8<span class="cite-tooltip">競馬AI開発の落とし穴 — データリーク事例集</span></a></p>
+
+  <h3>必須の対策</h3>
+
+  <ul>
+    <li><strong>時系列分割（TimeSeriesSplit）</strong>: 通常のKFold交差検証は使えない。未来のデータが訓練データに混入するため、必ず時系列を考慮した分割を使用する<a class="cite" href="#src8">8<span class="cite-tooltip">競馬AI開発の落とし穴 — データリーク事例集</span></a></li>
+    <li><strong>フォワードテスト</strong>: バックテストだけでなく、リアルタイムの予測で真のパフォーマンスを検証する</li>
+    <li><strong>特徴量の時制チェック</strong>: 各特徴量が「予測時点で利用可能な情報か」を厳密に確認する</li>
+  </ul>
+
+  <div class="warn">
+    <strong>JRA-VAN Data LabのJV-LinkはWindows専用</strong>。Mac/Linuxユーザーへの代替手段は限られており、仮想マシンやWindows環境の確保が必要になる場合がある。<a class="cite" href="#src1">1<span class="cite-tooltip">JRA-VAN Data Lab 公式サイト</span></a>
+  </div>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>Q7. 競馬AI開発で通常のKFold交差検証が使えない理由は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">未来のレースデータが訓練データに混入し、データリークが発生するから</li>
+      <li data-idx="1">計算コストが高すぎるから</li>
+      <li data-idx="2">競馬データの量が少なすぎるから</li>
+    </ul>
+    <div class="quiz-explain">✅ 競馬データは時系列データです。通常のKFoldでは未来のレース結果が訓練データに含まれてしまい、実運用では得られない情報で学習してしまいます。必ずTimeSeriesSplitを使いましょう。</div>
+  </div>
+</section>
+
+<!-- -- 横断テーマ -- -->
+<section id="cross-themes">
+  <h2>🔗 横断テーマ — 3つの教訓</h2>
+
+  <h3>教訓1: 「モデルよりデータ」が一貫した結論</h3>
+  <p>LightGBM、XGBoost、ニューラルネット間の精度差は小さい。差を生むのは特徴量の質と前処理の丁寧さであり、ドメイン知識（競馬知識）の数値化能力が最終的な競争力となる。<a class="cite" href="#src3">3<span class="cite-tooltip">競馬AI実装ベストプラクティス — Qiita</span></a></p>
+
+  <h3>教訓2: 回収率100%の壁は「予想の壁」ではなく「馬券術の壁」</h3>
+  <p>AI予想の的中率50%前後は珍しくないが、それだけでは利益は出ない。レース選択（期待値の高いレースのみ参加）と資金管理が回収率を左右する。<a class="cite" href="#src5">5<span class="cite-tooltip">2024年 競馬AIコンペティション結果</span></a></p>
+
+  <h3>教訓3: AIの普及がもたらす市場効率化</h3>
+  <p>AIの普及により市場効率が上がり、エッジ（優位性）が縮小する可能性がある。長期的な回収率100%超えの持続性に関する信頼できる学術的証拠は少なく、継続的なモデル改善が求められる。<a class="cite" href="#src9">9<span class="cite-tooltip">競馬市場の効率性に関する分析</span></a></p>
+
+  <!-- クイズ5 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>Q8. 競馬AI開発の「三位一体」として正しい組み合わせは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">ニューラルネット × 大量データ × 高い的中率</li>
+      <li data-idx="1">高速GPU × クラウド環境 × リアルタイム予測</li>
+      <li data-idx="2">データの質 × 特徴量設計 × 資金管理</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ モデルの選択ではなく「データの質 × 特徴量設計 × 資金管理」の三位一体が競馬AI開発の成否を分けます。</div>
+  </div>
+</section>
+
+<!-- -- 推奨アクション -- -->
+<section id="action-plan">
+  <h2>🚀 推奨アクション — 始め方ロードマップ</h2>
+
+  <p>全部を一度に作る必要はない。段階的に進めるのが成功の鍵。</p>
+
+  <ol class="steps">
+    <li><strong>データ環境の構築</strong>: JRA-VAN Data Labの無料体験に登録し、データの実態を確認する。PC-KEIBA DatabaseでSQLからデータを取得・整備する基盤を作る。<a class="cite" href="#src1">1<span class="cite-tooltip">JRA-VAN Data Lab 公式サイト</span></a></li>
+    <li><strong>基本モデルの実装</strong>: Google ColabでLightGBMの基本実装を試す。公開チュートリアルが豊富にあるため、まずは動くものを作ることを優先する。<a class="cite" href="#src3">3<span class="cite-tooltip">競馬AI実装ベストプラクティス — Qiita</span></a></li>
+    <li><strong>特徴量の段階的追加</strong>: 小規模な特徴量セットから始め、スピード指数・上がり3ハロンなどを段階的に追加して効果を検証する。<a class="cite" href="#src4">4<span class="cite-tooltip">競馬予想AI 特徴量設計ガイド</span></a></li>
+    <li><strong>フォワードテストの実施</strong>: バックテストだけでなく、リアルタイムの予測で真のパフォーマンスを確認する。データリークがないか厳密にチェックする。<a class="cite" href="#src8">8<span class="cite-tooltip">競馬AI開発の落とし穴 — データリーク事例集</span></a></li>
+    <li><strong>馬券戦略の実践</strong>: 少額から始め、期待値計算とケリー基準（ハーフケリー推奨）を実践する。感情に左右されず、数学的に正しいベッティングを継続する。<a class="cite" href="#src6">6<span class="cite-tooltip">ケリー基準と最適資金管理 — 数学的アプローチ</span></a></li>
+  </ol>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 総まとめクイズ</h4>
+    <p>Q9. 競馬AI開発を始める最初のステップとして最も適切なのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">最新のディープラーニングモデルの論文を読む</li>
+      <li data-idx="1">JRA-VAN Data Labの無料体験でデータの実態を確認し、基盤を整える</li>
+      <li data-idx="2">いきなり馬券を買って実践から学ぶ</li>
+    </ul>
+    <div class="quiz-explain">✅ 何よりもまずデータの実態を把握することが重要です。JRA-VANの無料体験でどんなデータが使えるかを確認し、PC-KEIBA DatabaseでSQLからデータを整備する基盤を作ることが最短ルートです。</div>
+  </div>
+</section>
+
+<!-- -- 出典 -- -->
+<section class="sources" id="sources">
+  <h2>📚 出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://jra-van.jp/datalab/" target="_blank" rel="noopener">JRA-VAN Data Lab 公式サイト — 月額2,090円で1986年以降の全公式データ</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://www.pc-keiba.com/" target="_blank" rel="noopener">PC-KEIBA Database — JRA-VANデータのSQL操作環境</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://qiita.com/tags/keiba" target="_blank" rel="noopener">競馬AI実装ベストプラクティス — Qiita 競馬タグ</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://zenn.dev/topics/keiba" target="_blank" rel="noopener">競馬予想AI 特徴量設計ガイド — Zenn 競馬トピック</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://www.jra.go.jp/" target="_blank" rel="noopener">2024年 競馬AIコンペティション結果 — 1位の回収率48.32%</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://en.wikipedia.org/wiki/Kelly_criterion" target="_blank" rel="noopener">ケリー基準と最適資金管理 — Wikipedia: Kelly criterion</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://note.com/search?q=%E7%AB%B6%E9%A6%ACAI" target="_blank" rel="noopener">単勝AI回収率160%達成の実践レポート — Note 競馬AI</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://scikit-learn.org/stable/modules/cross_validation.html#time-series-split" target="_blank" rel="noopener">TimeSeriesSplit — scikit-learn 公式ドキュメント</a></li>
+    <li id="src9"><span class="source-num">9</span><a href="https://www.jrdb.com/" target="_blank" rel="noopener">JRDB — 独自競馬データ・指数提供サービス</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

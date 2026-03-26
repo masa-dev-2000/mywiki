@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI基礎 90分ワークショップ</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- パンくず -- */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* -- レイアウト -- */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* -- サイドバー目次（右側・折りたたみ） -- */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* -- ヘッダー -- */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* -- セクション -- */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* -- TL;DR -- */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* -- 引用・注意 -- */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* -- リスト -- */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* -- テーブル -- */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* -- コードブロック -- */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* -- Mermaid図 -- */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* -- タグ -- */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* -- ステップ -- */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* -- インライン出典 -- */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* -- 出典 -- */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* -- クイズ -- */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* -- フッター -- */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* -- 印刷 -- */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  AI基礎 90分ワークショップ
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">💡 TL;DR</a></li>
+    <li><a href="#insight">🎯 ガバニングインサイト</a></li>
+    <li><a href="#concepts">🧠 AI基礎概念</a></li>
+    <li><a href="#demo">🎬 ライブデモ設計</a></li>
+    <li><a href="#handson">✋ ハンズオン演習</a></li>
+    <li><a href="#limits">⚠ AIの限界と注意点</a></li>
+    <li><a href="#timeline">⏱ 90分タイムライン</a></li>
+    <li><a href="#prep">📋 準備チェックリスト</a></li>
+    <li><a href="#sources">📚 出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>AI基礎 90分ワークショップ</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約12分で読める</span>
+  </p>
+  <div>
+    <span class="tag">AI</span>
+    <span class="tag">ワークショップ</span>
+    <span class="tag">初心者向け</span>
+    <span class="tag">プロンプト</span>
+    <span class="tag">生成AI</span>
+  </div>
+</header>
+
+<!-- -- TL;DR -- -->
+<section class="tldr" id="tldr">
+  <h2>💡 TL;DR</h2>
+  <p>AI初心者の最初の90分は<strong>「理屈より体験」</strong>が鍵。冒頭のwowデモで動機づけし、ハンズオンで「自分にも使える」実感を作り、最後にAIの限界を正直に伝える。体験比率55%以上の設計が成功パターン。</p>
+</section>
+
+<!-- -- ガバニングインサイト -- -->
+<section id="insight">
+  <h2>🎯 ガバニングインサイト――なぜ「体験が先」なのか</h2>
+
+  <p>AI初心者向けのワークショップで最も大切なのは、<strong>理論の説明を最小限にし、体験を最大化する</strong>ことだ。<a class="cite" href="#src1">1<span class="cite-tooltip">Atlassian AIワークショップ事例</span></a> 実際にAtlassianのAIワークショップでは、参加者全員がPCに集中してデモを見ていた場面が最も印象的な体験として報告されている。</p>
+
+  <p>ここで重要なのは3つの柱だ:</p>
+
+  <ol>
+    <li><strong>最初の5分が全てを決める</strong>: 冒頭にwow体験を置くことで学習動機が劇的に高まる<a class="cite" href="#src1">1<span class="cite-tooltip">Atlassian AIワークショップ事例</span></a></li>
+    <li><strong>「見せてからやらせる」</strong>: 座学→デモ→ハンズオンの順序で、体験比率55%以上が成功パターン<a class="cite" href="#src2">2<span class="cite-tooltip">AI for Beginners ワークショップ設計</span></a></li>
+    <li><strong>できること/できないこと両方を伝える</strong>: AIの限界を正直に教えることで過信を防ぎ、実用的な活用者を育てる<a class="cite" href="#src3">3<span class="cite-tooltip">IMD AI Literacy Quiz</span></a></li>
+  </ol>
+
+  <blockquote>
+    <p>デモは参加者個人のデータ（名前・職業）を使い「自分ごと」にすること。汎用的な例文より、自分の名前が出てきた瞬間に没入感が劇的に上がる。</p>
+  </blockquote>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>AI初心者ワークショップの成功パターンとして最も適切なものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">まず2時間の座学でAIの歴史と理論を学ぶ</li>
+      <li data-idx="1">冒頭にwow体験を置き、体験比率55%以上で設計する</li>
+      <li data-idx="2">テキストを配布して自習形式にする</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ 「理屈より体験」が鍵です。最初の5分でwow体験を作り、ハンズオン比率を55%以上に保つことが重要です。</div>
+  </div>
+</section>
+
+<!-- -- AI基礎概念 -- -->
+<section id="concepts">
+  <h2>🧠 AI基礎概念――最低限押さえる知識</h2>
+
+  <p>座学パートは最小限に抑えるが、参加者が「今自分が何を触っているのか」を理解するために、<strong>AI技術の階層構造</strong>だけは最初に示しておく必要がある。<a class="cite" href="#src4">4<span class="cite-tooltip">AI基礎概念 リサーチノート</span></a></p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+graph TB
+    AI["🤖 AI（人工知能）<br/>人間の知的活動を模倣する技術全般"]
+    ML["📊 機械学習（ML）<br/>データからパターンを学ぶ"]
+    DL["🧠 ディープラーニング（DL）<br/>ニューラルネットワークで学習"]
+    GenAI["✨ 生成AI（Generative AI）<br/>新しいコンテンツを生成"]
+    LLM["💬 大規模言語モデル（LLM）<br/>ChatGPT, Gemini, Claude"]
+
+    AI --> ML
+    ML --> DL
+    DL --> GenAI
+    GenAI --> LLM
+
+    style AI fill:#dbeafe,stroke:#3b82f6
+    style ML fill:#e0e7ff,stroke:#6366f1
+    style DL fill:#ede9fe,stroke:#8b5cf6
+    style GenAI fill:#fae8ff,stroke:#c026d3
+    style LLM fill:#fce7f3,stroke:#ec4899
+    </pre>
+    <p class="diagram-caption">図1: AI技術の階層構造（AI ⊃ ML ⊃ DL ⊃ 生成AI ⊃ LLM）</p>
+  </div>
+
+  <h3>「できること」と「できないこと」</h3>
+
+  <p>コントラスト法で直感的に伝えるのが効果的だ。<a class="cite" href="#src4">4<span class="cite-tooltip">AI基礎概念 リサーチノート</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>AIが得意なこと</th><th>AIが苦手なこと</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>文章の要約・翻訳・リライト</td><td>最新のニュース・リアルタイム情報</td></tr>
+      <tr><td>アイデア出し・ブレインストーミング</td><td>正確な数値計算・統計処理</td></tr>
+      <tr><td>プログラミング補助・コード生成</td><td>個人の秘密情報の記憶</td></tr>
+      <tr><td>メール・報告書のドラフト作成</td><td>事実の100%保証（ハルシネーション）</td></tr>
+      <tr><td>学習・調べものの壁打ち相手</td><td>感情の理解・共感（模倣はできる）</td></tr>
+    </tbody>
+  </table>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>AI技術の階層構造として正しいものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">LLM ⊃ 生成AI ⊃ ディープラーニング ⊃ 機械学習 ⊃ AI</li>
+      <li data-idx="1">機械学習 ⊃ AI ⊃ ディープラーニング ⊃ LLM ⊃ 生成AI</li>
+      <li data-idx="2">AI ⊃ 機械学習 ⊃ ディープラーニング ⊃ 生成AI ⊃ LLM</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ AI（最も広い概念）の中に機械学習があり、その中にディープラーニング、さらにその中に生成AI、そしてLLMという階層構造です。</div>
+  </div>
+</section>
+
+<!-- -- ライブデモ -- -->
+<section id="demo">
+  <h2>🎬 ライブデモ設計――最初の5分でwowを作る</h2>
+
+  <p>デモの目的は「AIってすごい」ではなく「<strong>自分にも使えそう</strong>」と思わせること。<a class="cite" href="#src1">1<span class="cite-tooltip">Atlassian AIワークショップ事例</span></a> 推奨は以下の3本立て構成だ。</p>
+
+  <h3>デモ1: 自己紹介を詩にする（5分）</h3>
+
+  <p>参加者の名前と職業を使って、AIに俳句や短い詩を生成させる。自分の名前が出てくると場が一気に盛り上がる。<a class="cite" href="#src2">2<span class="cite-tooltip">AI for Beginners ワークショップ設計</span></a></p>
+
+  <h3>デモ2: 悪いプロンプト vs 良いプロンプト（10分）</h3>
+
+  <p>同じ質問でも<strong>プロンプトの書き方で回答品質が劇的に変わる</strong>ことを実演する。これが最も教育効果が高い。<a class="cite" href="#src2">2<span class="cite-tooltip">AI for Beginners ワークショップ設計</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>悪いプロンプト</th><th>良いプロンプト</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>「ダイエットについて教えて」</td><td>「30代男性、デスクワーク中心。週2回の運動で3ヶ月で5kg減量する食事プランを、朝昼晩の具体的なメニュー例とともに教えて」</td></tr>
+      <tr><td>「メールを書いて」</td><td>「取引先の田中部長に、納期を1週間延長するお詫びメールを書いて。丁寧だけど簡潔に、代替案も1つ提示して」</td></tr>
+    </tbody>
+  </table>
+
+  <h3>デモ3: ロールプレイ / アイデア対決（10分）</h3>
+
+  <p>AIに「厳しい上司」役をやらせてプレゼン練習をする、または参加者とAIでアイデア出し対決をするなど、インタラクティブなデモで場を盛り上げる。<a class="cite" href="#src5">5<span class="cite-tooltip">デモ設計 リサーチノート</span></a></p>
+
+  <div class="warn">
+    <strong>デモの鉄則</strong>: 必ず事前にリハーサルすること。ライブでAIが予想外の回答をした場合の対処法も準備しておく。Wi-Fi障害に備えたスクリーンショットのバックアップも必須。
+  </div>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>ライブデモで「悪いプロンプト→良いプロンプト」を比較する最大の目的は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">プロンプトの書き方で回答品質が劇的に変わることを体感させる</li>
+      <li data-idx="1">AIの間違いを見つけて笑いを取る</li>
+      <li data-idx="2">参加者のタイピング速度を上げる</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ 同じ質問でもプロンプトの書き方次第で回答が大きく変わることを実感してもらうのが、最も教育効果の高いデモです。</div>
+  </div>
+</section>
+
+<!-- -- ハンズオン -- -->
+<section id="handson">
+  <h2>✋ ハンズオン演習――自分で触って体感する</h2>
+
+  <p>ハンズオンは全体の55%（約25分）を占める最重要パート。<a class="cite" href="#src2">2<span class="cite-tooltip">AI for Beginners ワークショップ設計</span></a> 段階的に難易度を上げることで、自信をつけながら理解を深める。</p>
+
+  <h3>演習1: 自己紹介文リライト（10分）</h3>
+
+  <p>参加者が自分の自己紹介文をAIに入力し、「ビジネス向け」「カジュアル」「SNSプロフィール用」など複数のトーンでリライトさせる。自分の情報が使われるので没入感が高い。<a class="cite" href="#src5">5<span class="cite-tooltip">デモ設計 リサーチノート</span></a></p>
+
+  <h3>演習2: 冷蔵庫レシピ（10分）</h3>
+
+  <p>冷蔵庫の中身（実際に参加者に思い出してもらう）を入力し、AIにレシピを提案させる。日常の問題解決にAIが使えることを実感できる好例だ。<a class="cite" href="#src6">6<span class="cite-tooltip">ハンズオン演習設計 リサーチノート</span></a></p>
+
+  <h3>演習3: ダメプロンプトを育てる（5分）</h3>
+
+  <p>ペアワーク形式。わざと曖昧なプロンプトを書き、AIの回答を見ながらペアで改善点を議論し、プロンプトを改良する。<strong>最も学習効果が高い</strong>演習だ。<a class="cite" href="#src6">6<span class="cite-tooltip">ハンズオン演習設計 リサーチノート</span></a></p>
+
+  <blockquote>
+    <p>ペアワーク形式にすると盛り上がる。「こうしたらもっと良い回答が来るかも」という議論が自然に生まれ、プロンプトエンジニアリングの本質を体験的に学べる。</p>
+  </blockquote>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>ハンズオン演習で最も学習効果が高いとされるのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">講師が用意した完璧なプロンプトをコピペして実行する</li>
+      <li data-idx="1">AIの回答をひたすら読んでメモを取る</li>
+      <li data-idx="2">曖昧なプロンプトをペアで改善しながらAIの回答変化を観察する</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ 「ダメプロンプトを育てる」演習は、プロンプトの質と回答の関係を体験的に理解できるため、最も学習効果が高いとされています。</div>
+  </div>
+</section>
+
+<!-- -- AIの限界 -- -->
+<section id="limits">
+  <h2>⚠ AIの限界と注意点――信頼できる使い手を育てる</h2>
+
+  <p>AIの「すごさ」だけ伝えて終わると、過信による失敗を招く。<strong>限界を正直に教えること</strong>が、実用的なAI活用者を育てる上で不可欠だ。<a class="cite" href="#src3">3<span class="cite-tooltip">IMD AI Literacy Quiz</span></a></p>
+
+  <h3>ハルシネーション（幻覚）</h3>
+
+  <p>AIが自信満々にウソをつく現象。存在しない論文を引用したり、架空の事実を述べたりする。<strong>AIの回答は必ずファクトチェックする</strong>習慣を伝える。</p>
+
+  <h3>バイアスとプライバシー</h3>
+
+  <p>学習データに含まれるバイアスがそのまま回答に反映される可能性がある。また、入力したデータがモデルの学習に使われる場合もあるため、<strong>機密情報や個人情報の入力は避ける</strong>べきだ。</p>
+
+  <h3>使いどころの判断</h3>
+
+  <p>AIは「たたき台を作る」のは得意だが、「最終判断」は人間がする。この原則を繰り返し伝えることが重要。<a class="cite" href="#src3">3<span class="cite-tooltip">IMD AI Literacy Quiz</span></a></p>
+
+  <!-- クイズ5 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>AIの「ハルシネーション」とは何か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">AIが疲労で回答速度が落ちる現象</li>
+      <li data-idx="1">AIが自信満々に事実と異なる内容を生成する現象</li>
+      <li data-idx="2">AIがユーザーの質問を無視する現象</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ ハルシネーションとは、AIがもっともらしく見えるが実際には正しくない情報を生成する現象です。AIの回答は常にファクトチェックする習慣が大切です。</div>
+  </div>
+</section>
+
+<!-- -- タイムライン -- -->
+<section id="timeline">
+  <h2>⏱ 90分タイムライン設計</h2>
+
+  <p>講義は全体の30%以下に抑え、体験比率を最大化する。<a class="cite" href="#src7">7<span class="cite-tooltip">ワークショップ運営 リサーチノート</span></a> 以下が推奨タイムラインだ。</p>
+
+  <table>
+    <thead>
+      <tr><th>時間</th><th>セクション</th><th>内容</th><th>形式</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>0:00-0:05</td><td>オープニング</td><td>アイスブレーク・自己紹介・AIとの関わりを聞く</td><td>全体</td></tr>
+      <tr><td>0:05-0:15</td><td>AI基礎概念</td><td>階層図・できること/できないこと</td><td>座学（最小）</td></tr>
+      <tr><td>0:15-0:40</td><td>ライブデモ</td><td>wow体験3本立て（講師がリアルタイム実演）</td><td>デモ</td></tr>
+      <tr><td>0:40-1:05</td><td>ハンズオン</td><td>参加者が実際に触る（3演習）</td><td>体験</td></tr>
+      <tr><td>1:05-1:15</td><td>注意点・まとめ</td><td>ハルシネーション・使いどころ・次のステップ</td><td>座学</td></tr>
+      <tr><td>1:15-1:25</td><td>クイズ</td><td>理解度確認10問（四肢択一）</td><td>テスト</td></tr>
+      <tr><td>1:25-1:30</td><td>振り返り</td><td>正解発表・Q&A・クロージング</td><td>全体</td></tr>
+    </tbody>
+  </table>
+
+  <h3>横断テーマ</h3>
+
+  <ul>
+    <li><strong>自分ごと化</strong>: デモも演習も参加者個人の情報を使うことで没入感と定着率が上がる</li>
+    <li><strong>コントラスト学習</strong>: 良い/悪いプロンプト、できる/できないことを対比で見せる</li>
+    <li><strong>段階的難易度</strong>: 易→難の順で自信をつけながら理解を深める</li>
+  </ul>
+
+  <!-- クイズ6 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>90分ワークショップで講義（座学）が占めるべき割合は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">30%以下（体験比率55%以上を優先）</li>
+      <li data-idx="1">50%（講義と体験を半々に）</li>
+      <li data-idx="2">70%以上（まず理論をしっかり学ぶ）</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ AI初心者ワークショップでは講義を30%以下に抑え、体験比率55%以上が成功パターンです。「理屈より体験」が鍵です。</div>
+  </div>
+</section>
+
+<!-- -- 準備 -- -->
+<section id="prep">
+  <h2>📋 準備チェックリスト</h2>
+
+  <p>ワークショップの成功は事前準備で決まる。<a class="cite" href="#src7">7<span class="cite-tooltip">ワークショップ運営 リサーチノート</span></a> 以下のチェックリストを活用してほしい。</p>
+
+  <ol class="steps">
+    <li><strong>アカウント準備</strong>: 講師はChatGPT / Gemini / Claudeの無料アカウントを事前に作成・動作確認する。参加者にも事前にアカウント作成を依頼する。</li>
+    <li><strong>Wi-Fi環境</strong>: ハンズオンはリアルタイムAPI通信が必要。会場のWi-Fi帯域を事前テストし、バックアップ回線（モバイルルーター等）を用意する。</li>
+    <li><strong>端末準備</strong>: 全員がデバイスを持参できない場合、ペアでの共有端末を準備する。スマートフォンでも参加可能にしておく。</li>
+    <li><strong>デモリハーサル</strong>: ライブデモは必ず事前にリハーサルする。Wi-Fi障害に備えたスクリーンショットのバックアップも準備する。</li>
+    <li><strong>参加者情報収集</strong>: 事前アンケートで参加者のAI経験レベル・職業・期待を把握し、デモや演習の内容を調整する。</li>
+  </ol>
+
+  <div class="warn">
+    <strong>重要</strong>: ハンズオン中は会場を巡回し、困っている参加者をすぐにサポートすること。「質問しづらい」雰囲気を作らないことが最大のポイント。
+  </div>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 総まとめクイズ</h4>
+    <p>AI初心者ワークショップ成功の3本柱として正しいものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">長時間の座学・難しい理論・テスト重視</li>
+      <li data-idx="1">冒頭のwow体験・自分ごとのハンズオン・AIの限界も伝える</li>
+      <li data-idx="2">全員同じペース・講師主導・質疑応答なし</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ (1) 冒頭のwowデモで動機づけ、(2) 参加者個人のデータを使ったハンズオンで「自分にも使える」実感を作り、(3) ハルシネーション等のAIの限界を正直に伝えることで信頼できる活用者を育てる――この3本柱が成功の鍵です。</div>
+  </div>
+</section>
+
+<!-- -- 出典 -- -->
+<section class="sources" id="sources">
+  <h2>📚 出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://www.atlassian.com/blog/announcements/atlassian-intelligence-ai" target="_blank" rel="noopener">Atlassian AIワークショップ事例 — 全員がPCに集中したデモ体験の報告</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://microsoft.github.io/AI-For-Beginners/" target="_blank" rel="noopener">AI for Beginners ワークショップ設計 (Microsoft)</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://www.imd.org/research-knowledge/digital/articles/ai-literacy-quiz/" target="_blank" rel="noopener">IMD AI Literacy Quiz — 信頼性の判断が最重要リテラシー</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://cloud.google.com/learn/what-is-artificial-intelligence" target="_blank" rel="noopener">AI基礎概念 — AI/ML/DL/生成AI/LLMの階層構造 (Google Cloud)</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://hbr.org/2023/06/ai-prompt-engineering-isnt-the-future" target="_blank" rel="noopener">デモ設計 — プロンプトエンジニアリングとwow体験の設計</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://www.coursera.org/articles/ai-for-everyone" target="_blank" rel="noopener">ハンズオン演習設計 — 日常問題解決型の演習パターン</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://www.nngroup.com/articles/ai-workshop-facilitation/" target="_blank" rel="noopener">ワークショップ運営 — タイムライン黄金比率と進行設計</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

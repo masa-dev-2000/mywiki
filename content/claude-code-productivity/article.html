@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code 生産性向上ガイド</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── パンくず ── */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* ── レイアウト ── */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* ── サイドバー目次（右側・折りたたみ） ── */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* ── ヘッダー ── */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* ── セクション ── */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* ── TL;DR ── */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* ── 引用・注意 ── */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* ── リスト ── */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* ── テーブル ── */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* ── コードブロック ── */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* ── Mermaid図 ── */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* ── タグ ── */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* ── ステップ ── */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* ── インライン出典 ── */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* ── 出典 ── */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* ── クイズ ── */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* ── フッター ── */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ── 印刷 ── */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  Claude Code 生産性向上ガイド
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#overview">全体像</a></li>
+    <li><a href="#foundation">基盤設定</a></li>
+    <li><a href="#workflow">ワークフロー最適化</a></li>
+    <li><a href="#scaling">水平スケール</a></li>
+    <li><a href="#data">定量データ</a></li>
+    <li><a href="#caveats">留意点・リスク</a></li>
+    <li><a href="#roadmap">実践ロードマップ</a></li>
+    <li><a href="#sources">出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>Claude Code 生産性向上ガイド</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約12分で読める</span>
+  </p>
+  <div>
+    <span class="tag">Claude Code</span>
+    <span class="tag">生産性</span>
+    <span class="tag">AI開発</span>
+    <span class="tag">ワークフロー</span>
+  </div>
+</header>
+
+<!-- ── TL;DR ── -->
+<section class="tldr" id="tldr">
+  <h2>TL;DR</h2>
+  <p>Claude Codeで生産性を劇的に向上させる鍵は、<strong>「AIに検証手段を与える」「コンテキストを積極管理する」「並列実行で水平スケールする」</strong>の3層アプローチ。適切に実践すれば単純タスクで5-10倍、プロジェクト全体で2-3倍の生産性向上が現実的に達成できる。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+</section>
+
+<!-- ── 全体像 ── -->
+<section id="overview">
+  <h2>🏗️ 3層アプローチの全体像</h2>
+
+  <p>Claude Codeの生産性向上は、単なるプロンプトの工夫だけでは限界がある。Anthropic内部の実績では、エンジニアあたりのマージPR数が67%増加し、AI利用率は日常業務の60%に達している。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+
+  <p>この成果を支えているのが、<strong>基盤設定</strong>・<strong>ワークフロー最適化</strong>・<strong>水平スケール</strong>の3層構造だ。各層は独立して導入でき、段階的に積み上げることで効果が複合的に増大する。</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph L1["🔧 Layer 1: 基盤設定"]
+      A["CLAUDE.md<br/>プロジェクト知識"]
+      B["Hooks<br/>確定的アクション"]
+      C["MCP<br/>外部ツール接続"]
+      D["Skills<br/>ドメイン知識"]
+    end
+
+    subgraph L2["⚡ Layer 2: ワークフロー最適化"]
+      E["コンテキスト管理<br/>/clear /compact"]
+      F["検証ループ<br/>テスト・リンター"]
+      G["Plan Mode<br/>探索→計画→実装"]
+    end
+
+    subgraph L3["🚀 Layer 3: 水平スケール"]
+      H["Git Worktree<br/>並列作業"]
+      I["Agent Teams<br/>タスク自動分解"]
+      J["CI/CD統合<br/>ヘッドレスモード"]
+    end
+
+    L1 --> L2
+    L2 --> L3
+
+    style L1 fill:#eff6ff,stroke:#3b82f6
+    style L2 fill:#f0fdf4,stroke:#22c55e
+    style L3 fill:#fef3c7,stroke:#f59e0b
+    </pre>
+    <p class="diagram-caption">図1: Claude Code 生産性向上の3層アーキテクチャ</p>
+  </div>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>Claude Code生産性向上の3層アプローチとして正しい組み合わせは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">プロンプト改善・モデル変更・料金プラン最適化</li>
+      <li data-idx="1">コード生成・テスト自動化・デプロイ自動化</li>
+      <li data-idx="2">基盤設定・ワークフロー最適化・水平スケール</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.md/Hooks/MCPの<strong>基盤設定</strong>、コンテキスト管理/検証ループの<strong>ワークフロー最適化</strong>、Git Worktree/Agent Teamsの<strong>水平スケール</strong>の3層です。</div>
+  </div>
+</section>
+
+<!-- ── 基盤設定 ── -->
+<section id="foundation">
+  <h2>🔧 Layer 1: 基盤設定 — CLAUDE.md・フック・MCP</h2>
+
+  <p>Claude Codeの性能はプロジェクト固有の設定に大きく依存する。15-30分の初期投資で、以後のすべてのセッションの品質が向上する。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a></p>
+
+  <h3>CLAUDE.md: プロジェクトの「知能」</h3>
+
+  <p>CLAUDE.mdはプロジェクト固有のルール・慣習・コンテキストをAIに伝えるファイルだ。<code>/init</code>コマンドで自動生成し、段階的に洗練していくのが推奨パターン。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a></p>
+
+  <p>ただし重要な注意点がある。CLAUDE.mdは「助言的」であり、遵守率は約80%にとどまる。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a> 200行以内に収め、本当に重要なルールに絞ることが効果を最大化するコツだ。</p>
+
+  <pre><code># CLAUDE.md の効果的な構成例（200行以内推奨）
+
+## プロジェクト概要
+- 技術スタック: Next.js 15 + TypeScript + Supabase
+- テスト: vitest + Playwright
+
+## コーディング規約
+- 関数はアロー関数で統一
+- エラーハンドリングは Result 型を使用
+
+## 重要なパス
+- API: src/app/api/
+- コンポーネント: src/components/</code></pre>
+
+  <h3>Hooks: 確定的な100%実行</h3>
+
+  <p>CLAUDE.mdの遵守率80%に対し、Hooksは確定的に100%実行される。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a> 「絶対に守らせたいルール」はHooksで実装するのが正解だ。</p>
+
+  <ul>
+    <li><strong>PreToolUse</strong>: ツール実行前のバリデーション（禁止ファイルの編集防止など）</li>
+    <li><strong>PostToolUse</strong>: ツール実行後のアクション（自動フォーマット、テスト実行など）</li>
+    <li><strong>Stop</strong>: 応答完了時のアクション（自動コミット、ログ記録など）</li>
+  </ul>
+
+  <h3>MCP: 外部ツールとの直接接続</h3>
+
+  <p>MCP（Model Context Protocol）を使えば、Notion、Figma、データベース、GitHub等と直接接続してワークフローを自動化できる。<a class="cite" href="#src3">3<span class="cite-tooltip">MCP 公式仕様</span></a></p>
+
+  <h3>Skills: コンテキスト節約の切り札</h3>
+
+  <p>常時必要な情報はCLAUDE.mdに、時々必要なドメイン知識はスキル（SKILL.md）に分離する。スキルは必要時にのみ読み込まれるため、コンテキストウィンドウを節約できる。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>設定手段</th><th>遵守率</th><th>用途</th><th>読み込みタイミング</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>CLAUDE.md</strong></td><td>約80%</td><td>プロジェクトルール・慣習</td><td>常時</td></tr>
+      <tr><td><strong>Hooks</strong></td><td>100%</td><td>確定的アクション</td><td>イベント発火時</td></tr>
+      <tr><td><strong>MCP</strong></td><td>-</td><td>外部ツール接続</td><td>ツール呼び出し時</td></tr>
+      <tr><td><strong>Skills</strong></td><td>約80%</td><td>ドメイン知識</td><td>必要時のみ</td></tr>
+    </tbody>
+  </table>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>CLAUDE.mdとHooksの最大の違いは何か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CLAUDE.mdはローカル、Hooksはクラウドで実行される</li>
+      <li data-idx="1">CLAUDE.mdは遵守率約80%だが、Hooksは確定的に100%実行される</li>
+      <li data-idx="2">CLAUDE.mdはJavaScriptで、HooksはMarkdownで記述する</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.mdは「助言的」で遵守率約80%。一方Hooksはイベント駆動で確定的に100%実行されるため、絶対に守らせたいルールにはHooksを使うべきです。</div>
+  </div>
+
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>CLAUDE.mdの推奨行数と、その理由は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">200行以内。コンテキストウィンドウを圧迫せず、重要ルールに集中するため</li>
+      <li data-idx="1">500行以上。情報量が多いほどAIの判断精度が上がるため</li>
+      <li data-idx="2">行数制限はない。好きなだけ書いてよい</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.mdは常時コンテキストに読み込まれるため、200行以内に抑えて本当に重要な情報に絞ることが推奨されています。</div>
+  </div>
+</section>
+
+<!-- ── ワークフロー最適化 ── -->
+<section id="workflow">
+  <h2>⚡ Layer 2: ワークフロー最適化 — コンテキスト管理と検証ループ</h2>
+
+  <p>Anthropic公式が最も強調するのが、「検証手段を与えることが、最もレバレッジの高い施策」という点だ。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a> AIに任せっぱなしではなく、AIが自己検証できる環境を整えることが生産性の鍵を握る。</p>
+
+  <h3>コンテキストウィンドウ = 最重要リソース</h3>
+
+  <p>コンテキストウィンドウの使用率と精度には明確な相関がある。<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code コンテキスト管理ガイド</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>使用率</th><th>状態</th><th>対処法</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>〜70%</strong></td><td>正常動作</td><td>そのまま続行</td></tr>
+      <tr><td><strong>70〜85%</strong></td><td>精度低下開始</td><td><code>/compact</code> で要約圧縮</td></tr>
+      <tr><td><strong>85〜90%</strong></td><td>幻覚増加</td><td><code>/clear</code> でリセット</td></tr>
+      <tr><td><strong>90%以上</strong></td><td>動作不安定</td><td>新規セッション開始</td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>「2回修正してダメなら<code>/clear</code>して新しいプロンプトで再開」が最善のルール。無理に続けるとコンテキストが汚染され、精度がさらに低下する悪循環に陥る。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+  </blockquote>
+
+  <h3>検証駆動開発のパターン</h3>
+
+  <p>テスト・スクリーンショット・リンター等の検証手段がAIの自律性を引き上げる。AIが自分のアウトプットを検証できれば、人間の介入を最小限に抑えながら品質を維持できる。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+
+  <ul>
+    <li><strong>テスト駆動</strong>: テストを先に書かせてから実装させる。AIが自分でグリーン/レッドを確認</li>
+    <li><strong>リンター統合</strong>: ESLint/Prettier等をHooksで自動実行し、スタイル違反を即座にフィードバック</li>
+    <li><strong>スクリーンショット検証</strong>: UIの見た目をAIに確認させる（Playwright等）</li>
+  </ul>
+
+  <h3>Plan Modeワークフロー</h3>
+
+  <p><kbd>Ctrl</kbd>+<kbd>G</kbd>で切り替えるPlan Modeは、探索 → 計画 → 実装 → コミットの4フェーズワークフローを可能にする。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a> いきなりコードを書かせるのではなく、まず計画を立てさせることで手戻りを大幅に削減できる。</p>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>コンテキストウィンドウ使用率が85%を超えたときの最適な対処は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">そのまま作業を続行する</li>
+      <li data-idx="1">モデルをより大きなものに変更する</li>
+      <li data-idx="2"><code>/clear</code>でリセットするか、新規セッションを開始する</li>
+    </ul>
+    <div class="quiz-explain">正解。85%以上では幻覚が増加するため、<code>/clear</code>でのリセットまたは新規セッション開始が最適です。無理に続けるとコンテキスト汚染が進み、品質がさらに低下します。</div>
+  </div>
+
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>Anthropic公式が「最もレバレッジの高い施策」として挙げているのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">AIに検証手段（テスト・リンター等）を与えること</li>
+      <li data-idx="1">より詳細なプロンプトを書くこと</li>
+      <li data-idx="2">複数のAIモデルを組み合わせること</li>
+    </ul>
+    <div class="quiz-explain">正解。検証手段を与えることでAIが自己検証でき、人間の介入を最小限にしながら品質を維持できます。これが最もインパクトの大きいプラクティスです。</div>
+  </div>
+</section>
+
+<!-- ── 水平スケール ── -->
+<section id="scaling">
+  <h2>🚀 Layer 3: 水平スケール — 並列セッションとAgent Teams</h2>
+
+  <p>Git Worktreeとエージェントチームによる並列実行で、スループットを3-5倍に引き上げられる。<a class="cite" href="#src5">5<span class="cite-tooltip">開発者コミュニティ報告・並列実行検証</span></a> 1人の開発者が「チーム」として振る舞えるようになる世界だ。</p>
+
+  <h3>Git Worktree並列実行</h3>
+
+  <p><code>--worktree</code>オプションで各セッションが独立した作業ディレクトリを取得する。5エージェント並列で約5倍のスループットが開発者から報告されている。<a class="cite" href="#src5">5<span class="cite-tooltip">開発者コミュニティ報告・並列実行検証</span></a></p>
+
+  <pre><code># ターミナル1: フロントエンド機能開発
+claude --worktree "ログイン画面のUIを実装して"
+
+# ターミナル2: バックエンドAPI開発
+claude --worktree "認証APIエンドポイントを作成して"
+
+# ターミナル3: テスト作成
+claude --worktree "認証フローのE2Eテストを書いて"</code></pre>
+
+  <h3>Agent Teams（v2.1.32〜）</h3>
+
+  <p>Agent Teamsではチームリーダーがタスク分解・統合を自動調整する。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a> 手動でタスクを分割する必要がなく、より自然に並列作業を進められる。</p>
+
+  <h3>Writer/Reviewerパターン</h3>
+
+  <p>実装と品質レビューを別セッションで分離するパターンも効果的だ。Writerセッションがコードを書き、Reviewerセッションがレビュー・改善提案を行う。人間のペアプログラミングに近い品質管理が自動で実現できる。</p>
+
+  <h3>CI/CD統合</h3>
+
+  <p><code>claude -p</code>（ヘッドレスモード）でCI/CDパイプラインに統合し、バッチ処理が可能。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント</span></a> PRのレビュー自動化、リリースノート自動生成などに活用できる。</p>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>Git Worktreeを使った並列実行の主な利点は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">ネットワーク帯域を節約できる</li>
+      <li data-idx="1">各セッションが独立した作業ディレクトリを持ち、コンフリクトなく並列作業できる</li>
+      <li data-idx="2">Git履歴が自動的にきれいになる</li>
+    </ul>
+    <div class="quiz-explain">正解。<code>--worktree</code>により各セッションが独立したディレクトリで作業するため、同じファイルの競合を避けながら並列にタスクを進められます。</div>
+  </div>
+</section>
+
+<!-- ── 定量データ ── -->
+<section id="data">
+  <h2>📊 定量データまとめ</h2>
+
+  <p>Claude Codeの生産性向上は、複数の企業・組織から定量的なデータが報告されている。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a><a class="cite" href="#src6">6<span class="cite-tooltip">Spotify エンジニアリング事例</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>指標</th><th>データ</th><th>出典</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Anthropic内部 自己報告生産性向上</td><td>+50%（前年比2-3倍増）</td><td><a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></td></tr>
+      <tr><td>AI利用率（日常業務）</td><td>60%</td><td><a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></td></tr>
+      <tr><td>エンジニアあたりマージPR増</td><td>+67%</td><td><a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></td></tr>
+      <tr><td>新規作業の割合（AI無しではやらなかった）</td><td>27%</td><td><a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></td></tr>
+      <tr><td>並列エージェントスループット倍率</td><td>約5倍（5セッション）</td><td><a class="cite" href="#src5">5<span class="cite-tooltip">開発者コミュニティ報告・並列実行検証</span></a></td></tr>
+      <tr><td>コンテキスト精度低下開始</td><td>使用率70%時点</td><td><a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code コンテキスト管理ガイド</span></a></td></tr>
+      <tr><td>Spotify エンジニアリング時間削減</td><td>最大90%</td><td><a class="cite" href="#src6">6<span class="cite-tooltip">Spotify エンジニアリング事例</span></a></td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>注目すべきは「新規作業の割合 27%」という数字。AIコーディングは既存タスクの高速化だけでなく、<strong>これまでやらなかった作業を可能にする</strong>という側面がある。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+  </blockquote>
+</section>
+
+<!-- ── 留意点 ── -->
+<section id="caveats">
+  <h2>⚠️ 留意点・リスク</h2>
+
+  <p>生産性向上のデータは印象的だが、反面のエビデンスも無視できない。バランスの取れた導入判断のために、以下の点を認識しておく必要がある。</p>
+
+  <ul>
+    <li><strong>METR研究の警告</strong>: 熟練開発者が実際のタスクで19%遅くなったケースが報告されている。一方、自己評価では20%速いと感じていた。<a class="cite" href="#src7">7<span class="cite-tooltip">METR AI Coding Agents 研究</span></a></li>
+    <li><strong>レビューコスト増大</strong>: コードレビュー時間が91%増加したケースも計測されている（Faros AI）。<a class="cite" href="#src8">8<span class="cite-tooltip">Faros AI コードレビュー調査</span></a></li>
+    <li><strong>スキル劣化リスク</strong>: AI依存が増すと手動コーディング能力が低下する可能性がある</li>
+    <li><strong>レガシーコードの壁</strong>: 複雑なレガシーコードベースでは、AI修正に費やす時間が手書きより長くなることもある</li>
+  </ul>
+
+  <div class="warn">
+    <strong>重要</strong>: 生産性向上の数字は「適切に運用した場合」の値。設定不足のまま使うと、むしろ生産性が下がるリスクがある。Layer 1の基盤設定を飛ばさないこと。
+  </div>
+
+  <!-- クイズ5 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>METR研究で報告された、AI支援開発に関する注意すべき発見は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">全ての開発者が一律に50%速くなった</li>
+      <li data-idx="1">AIツールは初心者にのみ効果がある</li>
+      <li data-idx="2">熟練開発者が19%遅くなったのに、自己評価では20%速いと感じていた</li>
+    </ul>
+    <div class="quiz-explain">正解。METR研究は、体感速度と実測速度にギャップがあることを示しています。AIツールの効果を過信せず、客観的な計測と検証を続けることが重要です。</div>
+  </div>
+</section>
+
+<!-- ── ロードマップ ── -->
+<section id="roadmap">
+  <h2>🗺️ 実践ロードマップ</h2>
+
+  <p>全部を一度に導入する必要はない。段階的に積み上げていくアプローチが推奨される。<a class="cite" href="#src1">1<span class="cite-tooltip">Anthropic 公式ベストプラクティス</span></a></p>
+
+  <ol class="steps">
+    <li><strong>今すぐ（15-30分）</strong>: <code>/init</code>でCLAUDE.mdを自動生成し、200行以内に洗練する。基本的なHook（自動フォーマット等）を設定する。</li>
+    <li><strong>今週中</strong>: MCP接続を設定する（GitHub、データベース等）。カスタムスキルを2-3個作成して、ドメイン知識を分離する。</li>
+    <li><strong>来週以降</strong>: Git Worktreeによる並列ワークフローを導入する。Agent Teamsを試行して、タスク分割の自動化を体験する。</li>
+    <li><strong>継続的</strong>: コンテキスト管理を習慣化する。<code>/clear</code>、<code>/compact</code>、サブエージェント活用をルーティン化する。</li>
+  </ol>
+
+  <div class="warn">
+    <strong>段階的自律の原則</strong>: Claude Codeへの委任可能な作業量は0-20%から段階的に拡大中。いきなり100%委任を目指すのではなく、信頼の蓄積と共に委任範囲を広げていくのが成功パターン。
+  </div>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 総まとめクイズ</h4>
+    <p>Claude Codeの生産性向上で「最もレバレッジが高い」とされる施策は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CLAUDE.mdを1000行以上の詳細な仕様書にする</li>
+      <li data-idx="1">テスト・リンター等の検証手段をAIに与え、自己検証できる環境を作る</li>
+      <li data-idx="2">並列セッション数を可能な限り増やす</li>
+    </ul>
+    <div class="quiz-explain">正解。Anthropic公式が最も強調しているのは「検証手段を与える」こと。AIが自分のアウトプットを検証できれば、人間の介入を最小限にしながら品質を維持でき、最大のレバレッジが得られます。</div>
+  </div>
+</section>
+
+<!-- ── 出典 ── -->
+<section class="sources" id="sources">
+  <h2>📚 出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://www.anthropic.com/engineering/claude-code-best-practices" target="_blank" rel="noopener">Anthropic — Claude Code Best Practices for Engineering Teams</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://docs.anthropic.com/en/docs/claude-code" target="_blank" rel="noopener">Claude Code 公式ドキュメント</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">Model Context Protocol (MCP) 公式仕様</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://docs.anthropic.com/en/docs/claude-code/memory" target="_blank" rel="noopener">Claude Code コンテキスト・メモリ管理ガイド</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://www.anthropic.com/engineering/built-multi-agent-research-system" target="_blank" rel="noopener">Anthropic — How we built our multi-agent research system</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://engineering.atspotify.com/" target="_blank" rel="noopener">Spotify Engineering — AI Productivity Case Study</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://metr.org/blog/2025-07-10-early-2025-ai-agents-study/" target="_blank" rel="noopener">METR — Measuring the Impact of Early 2025 AI Agents on Open Source Development</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://www.faros.ai/" target="_blank" rel="noopener">Faros AI — Engineering Intelligence Platform</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

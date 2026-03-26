@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>石油業界の構造分析</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- パンくず -- */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* -- レイアウト -- */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* -- サイドバー目次（右側・折りたたみ） -- */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* -- ヘッダー -- */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* -- セクション -- */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* -- TL;DR -- */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* -- 引用・注意 -- */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* -- リスト -- */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* -- テーブル -- */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* -- Mermaid図 -- */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* -- タグ -- */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* -- インライン出典 -- */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* -- 出典 -- */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* -- クイズ -- */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* -- フッター -- */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* -- 印刷 -- */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">&#x1F4DA; MyWiki</a>
+  <span>&rsaquo;</span>
+  石油業界の構造分析
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">&#x1F4D1;</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>&#x1F4D1; 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">&times;</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#overview">全体像</a></li>
+    <li><a href="#tech">技術革新と勢力図</a></li>
+    <li><a href="#power-shift">IOCからNOCへの権力移行</a></li>
+    <li><a href="#decarbonization">脱炭素と構造転換</a></li>
+    <li><a href="#cross-themes">横断テーマ</a></li>
+    <li><a href="#outlook">未解決の問いと展望</a></li>
+    <li><a href="#sources">出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>石油業界の構造分析</h1>
+  <p class="meta">
+    <span>&#x1F4C5; 2026-03-26</span>
+    <span>&#x23F1; 約15分で読める</span>
+  </p>
+  <div>
+    <span class="tag">石油産業</span>
+    <span class="tag">地政学</span>
+    <span class="tag">エネルギー転換</span>
+    <span class="tag">OPEC</span>
+    <span class="tag">脱炭素</span>
+  </div>
+</header>
+
+<!-- -- TL;DR -- -->
+<section class="tldr" id="tldr">
+  <h2>TL;DR</h2>
+  <p>石油産業の構造は<strong>「技術」「資本」「地政学」</strong>の3つの力が時代ごとに主導権を争い形成されてきた。今まさに<strong>脱炭素</strong>という第4の力によって、「燃料供給業」から「素材・化学原料供給業」への構造転換期を迎えている。<a class="cite" href="#src1">1<span class="cite-tooltip">IEA World Energy Outlook 2024</span></a></p>
+</section>
+
+<!-- -- 全体像 -- -->
+<section id="overview">
+  <h2>全体像: 石油産業を動かす3つの力</h2>
+
+  <p>石油産業を理解するには、上流（探鉱・生産）・中流（輸送・貯蔵）・下流（精製・販売）の<strong>バリューチェーン3層構造</strong>と、それを支配するプレイヤー群の関係を把握する必要がある。<a class="cite" href="#src2">2<span class="cite-tooltip">JOGMEC 石油・天然ガス資源情報</span></a></p>
+
+  <p>歴史的に見ると、この産業は3つの力 ── 技術革新、資本の集中、地政学的パワーバランス ── が絡み合いながら発展してきた。そして現在、脱炭素という第4の力が加わることで、産業構造そのものが根本的に変わろうとしている。</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph upstream["上流 Upstream"]
+      E["探鉱 Exploration"]
+      P["生産 Production"]
+    end
+
+    subgraph midstream["中流 Midstream"]
+      T["輸送 Transport"]
+      S["貯蔵 Storage"]
+    end
+
+    subgraph downstream["下流 Downstream"]
+      R["精製 Refining"]
+      D["販売 Distribution"]
+      C["石油化学 Petrochemicals"]
+    end
+
+    subgraph players["主要プレイヤー"]
+      IOC["IOC<br/>国際石油資本"]
+      NOC["NOC<br/>国営石油会社"]
+      OPEC["OPEC+<br/>産油国カルテル"]
+    end
+
+    E --> P --> T --> S --> R --> D
+    R --> C
+    IOC -.->|"技術提供"| upstream
+    NOC -.->|"埋蔵量90%支配"| upstream
+    OPEC -.->|"価格調整"| P
+
+    style upstream fill:#eff6ff,stroke:#3b82f6
+    style midstream fill:#f0fdf4,stroke:#22c55e
+    style downstream fill:#fef3c7,stroke:#f59e0b
+    style players fill:#faf5ff,stroke:#a855f7
+    </pre>
+    <p class="diagram-caption">図1: 石油産業のバリューチェーンと主要プレイヤー</p>
+  </div>
+
+  <p>本記事では、リサーチの統合分析をもとに、この産業構造を<strong>3つの論拠</strong>と<strong>4つの横断テーマ</strong>から読み解いていく。</p>
+</section>
+
+<!-- -- 技術革新 -- -->
+<section id="tech">
+  <h2>論拠1: 技術革新が産業の勢力図を塗り替え続けてきた</h2>
+
+  <p>石油産業は本質的に<strong>技術駆動型産業</strong>である。各時代の技術革新が、その時代の勝者を決定づけてきた。<a class="cite" href="#src3">3<span class="cite-tooltip">EIA, U.S. Crude Oil Production Historical Data</span></a></p>
+
+  <h3>技術革新の歴史</h3>
+
+  <table>
+    <thead>
+      <tr><th>年代</th><th>技術革新</th><th>産業への影響</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1859年</td><td>ドレイク油井</td><td>近代石油産業の誕生</td></tr>
+      <tr><td>1900年代</td><td>ロータリー掘削</td><td>掘削効率の飛躍的向上</td></tr>
+      <tr><td>1947年</td><td>海洋掘削</td><td>陸上から海洋へのフロンティア拡大</td></tr>
+      <tr><td>1970年代後半</td><td>3D地震探査</td><td>空井戸率が最大50%低下、投資リスク軽減</td></tr>
+      <tr><td>2000年代</td><td>水圧破砕 + 水平掘削</td><td>シェール革命 ── 米国が世界最大の産油国に</td></tr>
+    </tbody>
+  </table>
+
+  <h3>シェール革命のインパクト</h3>
+
+  <p>最も劇的な変化をもたらしたのがシェール革命だ。水圧破砕（フラッキング）と水平掘削技術の組み合わせにより、米国の原油生産量は<strong>日量50万バレル（2008年）から840万バレル（2023年）へ急増</strong>した。<a class="cite" href="#src3">3<span class="cite-tooltip">EIA, U.S. Crude Oil Production Historical Data</span></a> これにより米国は世界最大の産油国の地位を回復し、エネルギー安全保障の地政学的構図を一変させた。</p>
+
+  <blockquote>
+    <p>技術力が参入障壁を形成し、スーパーメジャーの寡占構造を生んだ。同時に、シェール革命のような破壊的技術は既存秩序を覆す力を持つ。</p>
+  </blockquote>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>Q1: シェール革命で米国の原油生産量はどう変化したか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">日量50万バレルから200万バレルに微増した</li>
+      <li data-idx="1">変化はなく、輸入依存が続いた</li>
+      <li data-idx="2">日量50万バレルから840万バレルへ約17倍に急増した</li>
+    </ul>
+    <div class="quiz-explain">正解。水圧破砕と水平掘削技術により、米国のシェールオイル生産量は飛躍的に増加し、世界最大の産油国に返り咲いた。</div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>Q2: 3D地震探査技術の最大の貢献は何か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">掘削速度が10倍に向上した</li>
+      <li data-idx="1">空井戸率が最大50%低下し、投資リスクが大幅に軽減された</li>
+      <li data-idx="2">海洋油田の発見が可能になった</li>
+    </ul>
+    <div class="quiz-explain">正解。3D地震探査は地下構造を立体的に可視化し、掘削前に油層の有無をより正確に判断できるようになった。これにより「掘ったが出なかった」というリスクが大幅に低下した。</div>
+  </div>
+</section>
+
+<!-- -- 権力移行 -- -->
+<section id="power-shift">
+  <h2>論拠2: 権力はIOCからNOCへ不可逆的に移行した</h2>
+
+  <p>20世紀前半、石油産業は「セブン・シスターズ」と呼ばれる7つの国際石油資本（IOC）が世界の埋蔵量の85%を支配していた。しかし1970年代の<strong>資源ナショナリズム</strong>の波により、主導権は産油国の国営石油会社（NOC）へと移行した。<a class="cite" href="#src4">4<span class="cite-tooltip">OPEC Annual Statistical Bulletin 2024</span></a></p>
+
+  <h3>数字が語る権力移行</h3>
+
+  <ul>
+    <li><strong>IOC生産シェア:</strong> 1950年93% → 2007年23%</li>
+    <li><strong>Saudi Aramco</strong>単独で日量1,100万バレル超 ── ExxonMobilの4倍以上</li>
+    <li>NOC上位5社のR&D投資成長率はスーパーメジャーの<strong>2倍</strong>（2005年以降）<a class="cite" href="#src5">5<span class="cite-tooltip">National Oil Companies: Business Models, Challenges, and Emerging Trends, KAPSARC</span></a></li>
+    <li>世界の既知埋蔵量のうち民間企業が自由に運営可能なのは<strong>わずか7%</strong></li>
+  </ul>
+
+  <p>この移行は不可逆的だ。IOCの競争優位は深海・非在来型など超高難度領域に限定されつつある。一方NOCは資金調達力と技術力の両面で格差を縮小しており、IOCは「技術サービス提供者」的な立場へと変化しつつある。</p>
+
+  <div class="warn">
+    <strong>留意点:</strong> NOCが埋蔵量の90%超を支配するという事実は、民間投資家にとって「投資可能な石油資産」が極めて限られていることを意味する。これは石油関連ETFやエネルギー株を評価する際の重要な前提条件である。
+  </div>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="0">
+    <h4>理解チェック</h4>
+    <p>Q1: IOCの生産シェアは1950年から2007年にかけてどう変化したか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">93%から23%に低下した</li>
+      <li data-idx="1">50%から80%に上昇した</li>
+      <li data-idx="2">ほぼ変わらず90%前後を維持した</li>
+    </ul>
+    <div class="quiz-explain">正解。資源ナショナリズムにより産油国が油田を国有化し、IOCの生産シェアは93%から23%へと劇的に低下した。</div>
+  </div>
+
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>Q2: 世界の既知埋蔵量のうち、民間企業が自由に運営可能な割合はどの程度か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">約30%</li>
+      <li data-idx="1">約15%</li>
+      <li data-idx="2">わずか約7%</li>
+    </ul>
+    <div class="quiz-explain">正解。NOCが埋蔵量の大半を支配しており、民間企業のアクセス可能な資源はごくわずかに限られている。</div>
+  </div>
+</section>
+
+<!-- -- 脱炭素 -- -->
+<section id="decarbonization">
+  <h2>論拠3: 脱炭素が「燃料 → 素材」への構造転換を加速</h2>
+
+  <p>輸送燃料としての石油需要は<strong>2020年代後半にピーク</strong>に達すると予測されている。代わって需要の柱となるのが、石油化学フィードストック（ポリマー・合成繊維等の原料）だ。<a class="cite" href="#src1">1<span class="cite-tooltip">IEA World Energy Outlook 2024</span></a></p>
+
+  <h3>需要構造の変化</h3>
+
+  <ul>
+    <li><strong>IEA予測:</strong> 2026年以降の需要増加の主要ドライバーは石油化学フィードストック</li>
+    <li>2030年までにポリマー・合成繊維に<strong>日量1,840万バレル</strong>（全体の約1/6）が必要</li>
+    <li>供給過剰: 2030年までに<strong>日量800万バレルの余剰</strong>が予測<a class="cite" href="#src1">1<span class="cite-tooltip">IEA World Energy Outlook 2024</span></a></li>
+  </ul>
+
+  <h3>メジャーの戦略二極化</h3>
+
+  <p>この構造変化に対し、欧州と米国のメジャーは全く異なるアプローチを取っている。</p>
+
+  <table>
+    <thead>
+      <tr><th>アプローチ</th><th>代表企業</th><th>戦略</th><th>株価パフォーマンス</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>米国型</strong></td><td>ExxonMobil, Chevron</td><td>化石燃料効率化 + CCS投資</td><td>+154%（ExxonMobil）</td></tr>
+      <tr><td><strong>欧州型</strong></td><td>Shell, BP, TotalEnergies</td><td>再エネ多角化（近年はグリーン撤退傾向）</td><td>+65%（Shell）<a class="cite" href="#src6">6<span class="cite-tooltip">Bloomberg, Oil Majors Stock Performance 2020-2024</span></a></td></tr>
+    </tbody>
+  </table>
+
+  <p>注目すべきは、BPが転換投資を50億ドル以上削減するなど、欧州メジャーの「グリーン撤退」が目立っている点だ。<a class="cite" href="#src7">7<span class="cite-tooltip">Financial Times, BP cuts green spending targets</span></a> 精製所の閉鎖・再編が加速し、<strong>石油化学統合型の設備だけが生き残る</strong>時代が迫っている。</p>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>Q1: IEAによると、2026年以降の石油需要増加の主要ドライバーは何か？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">航空燃料の急増</li>
+      <li data-idx="1">石油化学フィードストック（ポリマー・合成繊維等の原料）</li>
+      <li data-idx="2">自動車用ガソリンの世界的増加</li>
+    </ul>
+    <div class="quiz-explain">正解。輸送燃料としての需要がピークに達する一方で、プラスチックや合成繊維の原料としての石油化学需要が成長のドライバーとなる。</div>
+  </div>
+
+  <div class="quiz" data-answer="0">
+    <h4>理解チェック</h4>
+    <p>Q2: 石油メジャーの戦略が欧州型と米国型に二極化している理由として最も適切なのは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">脱炭素への姿勢と株主還元の優先度が地域により異なるため</li>
+      <li data-idx="1">技術力に大きな差があるため</li>
+      <li data-idx="2">埋蔵量の配分が異なるため</li>
+    </ul>
+    <div class="quiz-explain">正解。欧州は気候政策への社会的圧力が強く再エネ投資に向かった一方、米国型は化石燃料の効率化とCCSに集中。ただし株価パフォーマンスでは米国型が大幅に上回り、欧州メジャーもグリーン撤退の傾向が見られる。</div>
+  </div>
+</section>
+
+<!-- -- 横断テーマ -- -->
+<section id="cross-themes">
+  <h2>横断テーマ: 産業構造を貫く4つの視座</h2>
+
+  <h3>1. 「アクセス権」の経済学</h3>
+  <p>石油産業のビジネスモデルは本質的に<strong>「アクセス権」をめぐる競争</strong>である。<a class="cite" href="#src8">8<span class="cite-tooltip">Vaclav Smil, Oil: A Beginner's Guide, Oneworld Publications</span></a></p>
+  <ul>
+    <li><strong>埋蔵量へのアクセス</strong> ── NOCの優位</li>
+    <li><strong>輸送インフラへのアクセス</strong> ── 中流の参入障壁</li>
+    <li><strong>最終消費者へのアクセス</strong> ── 下流の立地と規模</li>
+    <li><strong>技術へのアクセス</strong> ── IOCの残された強み</li>
+  </ul>
+
+  <h3>2. OPEC+の構造的ジレンマ</h3>
+  <p>OPEC+が減産すればシェールがシェアを奪い、増産すれば全体の価格が下がる。正式な制裁力を欠きながらも、サウジアラビアの余剰生産能力（日量180-200万バレル）が最終安全弁として機能する<strong>「制度的弱さと構造的強み」が共存</strong>している。<a class="cite" href="#src4">4<span class="cite-tooltip">OPEC Annual Statistical Bulletin 2024</span></a></p>
+
+  <h3>3. 予測の二極化</h3>
+  <p>IEAとOPECの需要予測は2030年時点で<strong>日量600万バレルもの乖離</strong>がある。<a class="cite" href="#src9">9<span class="cite-tooltip">OPEC World Oil Outlook 2024</span></a> 業界幹部の見方も、欧州は2035年以前のピークを予想する一方、北米は2050年以降と回答。この不確実性自体が投資判断を困難にしている。</p>
+
+  <h3>4. 資源ナショナリズムの拡大再生産</h3>
+  <p>石油で起きた国有化のパターンが、リチウム・コバルト・銅など<strong>エネルギー転換に必要な重要鉱物</strong>にも拡大しつつある。<a class="cite" href="#src10">10<span class="cite-tooltip">IEA, The Role of Critical Minerals in Clean Energy Transitions</span></a> かつての石油国有化と同様の構図が再現されている。</p>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>Q1: IEAとOPECの2030年の石油需要予測はどの程度乖離しているか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">日量100万バレル程度</li>
+      <li data-idx="1">日量600万バレル</li>
+      <li data-idx="2">ほぼ一致している</li>
+    </ul>
+    <div class="quiz-explain">正解。IEAは需要のピークアウトを予測する一方、OPECは継続的な成長を見込んでおり、その差は日量600万バレルに達する。この巨大な不確実性が投資判断を困難にしている。</div>
+  </div>
+
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>Q2: 石油における資源ナショナリズムのパターンが拡大しつつある分野は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">太陽光パネルの製造</li>
+      <li data-idx="1">天然ガスのLNG輸出</li>
+      <li data-idx="2">リチウム・コバルト・銅などエネルギー転換に必要な重要鉱物</li>
+    </ul>
+    <div class="quiz-explain">正解。石油で起きた国有化・資源囲い込みと同様のパターンが、EV用バッテリーや再エネ設備に不可欠な重要鉱物でも観測されている。</div>
+  </div>
+</section>
+
+<!-- -- 未解決の問いと展望 -- -->
+<section id="outlook">
+  <h2>未解決の問いと今後の展望</h2>
+
+  <p>石油産業の将来を見通す上で、現時点では答えが出ていない重要な問いがいくつかある。</p>
+
+  <ul>
+    <li><strong>米国シェールのピーク後</strong>（2027年以降）の供給構造と価格水準はどうなるか？</li>
+    <li><strong>CCS/CCUSの経済性とスケーラビリティ</strong> ── 各社の2030年目標達成は不透明</li>
+    <li><strong>中国の需要ピーク時期</strong>とEV普及速度の影響</li>
+    <li><strong>政権交代</strong>による気候政策の非連続的変動リスク</li>
+  </ul>
+
+  <h3>読者へのアクション提案</h3>
+
+  <ol>
+    <li><strong>全体像を押さえる:</strong> 上流・中流・下流の3層構造と、IOC/NOC/OPECの3プレイヤーの関係を理解する</li>
+    <li><strong>変化の方向性を認識する:</strong> 「燃料 → 素材」「IOC → NOC」「一極 → 多極」の3つのメガトレンドを把握する</li>
+    <li><strong>不確実性を受け入れる:</strong> IEAとOPECの予測が大きく乖離する現状では、シナリオ思考が重要</li>
+    <li><strong>日本への含意を考える:</strong> 石油化学再編（千葉地区統合等）は世界的構造変化の日本版である<a class="cite" href="#src11">11<span class="cite-tooltip">経済産業省, 石油化学産業の将来像に関する研究会</span></a></li>
+  </ol>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="1">
+    <h4>総まとめクイズ</h4>
+    <p>石油産業の構造変化を表す3つのメガトレンドとして正しい組み合わせは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">「再エネ → 化石燃料」「分散 → 集中」「規制緩和 → 国有化」</li>
+      <li data-idx="1">「燃料 → 素材」「IOC → NOC」「一極 → 多極」</li>
+      <li data-idx="2">「陸上 → 海洋」「大企業 → スタートアップ」「国内 → 国際」</li>
+    </ul>
+    <div class="quiz-explain">正解。石油産業は(1)需要の中心が輸送燃料から化学原料へ、(2)主導権が国際石油資本から国営石油会社へ、(3)パワーバランスが米国一極から多極構造へ、という3つの大きな構造変化の最中にある。</div>
+  </div>
+</section>
+
+<!-- -- 出典 -- -->
+<section class="sources" id="sources">
+  <h2>出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://www.iea.org/reports/world-energy-outlook-2024" target="_blank" rel="noopener">IEA, World Energy Outlook 2024</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://oilgas-info.jogmec.go.jp/" target="_blank" rel="noopener">JOGMEC 石油・天然ガス資源情報</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://www.eia.gov/dnav/pet/pet_crd_crpdn_adc_mbblpd_a.htm" target="_blank" rel="noopener">EIA, U.S. Crude Oil Production Historical Data</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://asb.opec.org/" target="_blank" rel="noopener">OPEC Annual Statistical Bulletin 2024</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://www.kapsarc.org/" target="_blank" rel="noopener">National Oil Companies: Business Models, Challenges, and Emerging Trends, KAPSARC</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://www.bloomberg.com/" target="_blank" rel="noopener">Bloomberg, Oil Majors Stock Performance 2020-2024</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://www.ft.com/" target="_blank" rel="noopener">Financial Times, BP cuts green spending targets</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://www.vaclavsmil.com/" target="_blank" rel="noopener">Vaclav Smil, Oil: A Beginner's Guide, Oneworld Publications</a></li>
+    <li id="src9"><span class="source-num">9</span><a href="https://woo.opec.org/" target="_blank" rel="noopener">OPEC, World Oil Outlook 2024</a></li>
+    <li id="src10"><span class="source-num">10</span><a href="https://www.iea.org/reports/the-role-of-critical-minerals-in-clean-energy-transitions" target="_blank" rel="noopener">IEA, The Role of Critical Minerals in Clean Energy Transitions</a></li>
+    <li id="src11"><span class="source-num">11</span><a href="https://www.meti.go.jp/" target="_blank" rel="noopener">経済産業省, 石油化学産業の将来像に関する研究会</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Codeでプロジェクト管理</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── パンくず ── */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* ── レイアウト ── */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* ── サイドバー目次（右側・折りたたみ） ── */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* ── ヘッダー ── */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* ── セクション ── */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* ── TL;DR ── */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* ── 引用・注意 ── */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* ── リスト ── */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* ── テーブル ── */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* ── コードブロック ── */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* ── Mermaid図 ── */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* ── タグ ── */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* ── ステップ ── */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* ── インライン出典 ── */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* ── 出典 ── */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* ── クイズ ── */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* ── フッター ── */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ── 印刷 ── */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  Claude Code × プロジェクト管理
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#hierarchy">設定階層の仕組み</a></li>
+    <li><a href="#skills">Skills配置戦略</a></li>
+    <li><a href="#scalability">スケーラビリティ</a></li>
+    <li><a href="#crosscutting">横断テーマ</a></li>
+    <li><a href="#actions">推奨アクション</a></li>
+    <li><a href="#unresolved">未解決の問い</a></li>
+    <li><a href="#sources">出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>Claude Codeで<br>プロジェクト管理</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約12分で読める</span>
+  </p>
+  <div>
+    <span class="tag">Claude Code</span>
+    <span class="tag">プロジェクト管理</span>
+    <span class="tag">CLAUDE.md</span>
+    <span class="tag">Skills</span>
+    <span class="tag">設定階層</span>
+  </div>
+</header>
+
+<!-- ── TL;DR ── -->
+<section class="tldr" id="tldr">
+  <h2>TL;DR</h2>
+  <p>Claude Codeのプロジェクト管理は<strong>「グローバル（~/.claude/）で共通基盤、各プロジェクト（.claude/）で固有設定」の2層構造</strong>が最適解。Skills/Agentsは親ディレクトリ走査に制限があるため、共通Skillsは<code>~/.claude/skills/</code>に集約し、プロジェクト固有は各<code>.claude/skills/</code>に配置する。スケーラビリティはテンプレート戦略とProgressive Disclosureで確保する。</p>
+</section>
+
+<!-- ── 設定階層の仕組み ── -->
+<section id="hierarchy">
+  <h2>設定階層の仕組み ― 2層共存の設計思想</h2>
+
+  <p>Claude Codeには<strong>5段階のスコープ</strong>が存在する: Managed > User > Project > Local > 子ディレクトリ。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a> この階層構造は、グローバル共通設定とプロジェクト固有設定の共存を設計思想として内包している。</p>
+
+  <p>重要なポイントは、<code>CLAUDE.md</code>が<strong>親ディレクトリを遡って全て読み込む（フルロード）</strong>という点だ。つまり<code>~/.claude/CLAUDE.md</code>に全プロジェクト共通ルールを書き、<code>./CLAUDE.md</code>にプロジェクト固有ルールを書けば、両方が自動的にロードされる。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a></p>
+
+  <h3>settings.jsonのマージ動作</h3>
+
+  <p><code>settings.json</code>の配列設定（<code>permissions.allow</code>/<code>deny</code>等）はスコープ間で<strong>マージ・重複排除</strong>される。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント - Configuration</span></a> また<code>@path/to/file</code>インポートで外部ファイル参照が可能で、最大5段階のネストに対応している。</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph global["グローバル層 (~/.claude/)"]
+      G_MD["CLAUDE.md<br/>全PJ共通ルール"]
+      G_SET["settings.json<br/>権限・deny設定"]
+      G_SK["skills/<br/>汎用Skills"]
+    end
+
+    subgraph project["プロジェクト層 (.claude/)"]
+      P_MD["CLAUDE.md<br/>PJ固有ルール"]
+      P_SET["settings.json<br/>PJ固有権限"]
+      P_SK["skills/<br/>PJ固有Skills"]
+    end
+
+    subgraph runtime["ランタイム（マージ結果）"]
+      R["CLAUDE.md: 全階層フルロード<br/>settings.json: 配列はマージ<br/>skills: 各層から独立ロード"]
+    end
+
+    global --> runtime
+    project --> runtime
+
+    style global fill:#eff6ff,stroke:#3b82f6
+    style project fill:#f0fdf4,stroke:#22c55e
+    style runtime fill:#fef3c7,stroke:#f59e0b
+    </pre>
+    <p class="diagram-caption">図1: Claude Code 設定の2層構造とランタイムでのマージ</p>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>設定ファイル</th><th>親ディレクトリ走査</th><th>マージ動作</th><th>推奨配置</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>CLAUDE.md</strong></td><td>する（フルロード）</td><td>全階層を結合</td><td>グローバル + PJ</td></tr>
+      <tr><td><strong>settings.json</strong></td><td>しない</td><td>配列はマージ・重複排除</td><td>グローバル + PJ</td></tr>
+      <tr><td><strong>skills/</strong></td><td>しない</td><td>独立ロード</td><td>~/.claude/skills/ + .claude/skills/</td></tr>
+      <tr><td><strong>agents/</strong></td><td>しない</td><td>独立ロード</td><td>.claude/agents/（PJ単位）</td></tr>
+    </tbody>
+  </table>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>CLAUDE.mdの読み込みについて正しい記述はどれか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CWD直下の.claude/CLAUDE.mdのみ読み込まれる</li>
+      <li data-idx="1">親ディレクトリを遡って全てのCLAUDE.mdがフルロードされる</li>
+      <li data-idx="2">settings.jsonの設定で読み込み範囲を指定する</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.mdは親ディレクトリを遡って全て読み込む（フルロード）仕組みになっています。これにより<code>~/.claude/CLAUDE.md</code>の共通ルールと<code>./CLAUDE.md</code>のPJ固有ルールが自動的に両方適用されます。</div>
+  </div>
+</section>
+
+<!-- ── Skills配置戦略 ── -->
+<section id="skills">
+  <h2>Skills配置戦略 ― 親ディレクトリ非走査という制約</h2>
+
+  <p>CLAUDE.mdとsettings.jsonは親ディレクトリを走査するが、<strong>skills/agents/commands/はCWD直下の<code>.claude/</code>のみ参照する</strong>。<a class="cite" href="#src3">3<span class="cite-tooltip">GitHub Issue #26489 - Skills親ディレクトリ走査</span></a> この非対称性がSkills配置戦略を決定する最大の制約条件だ。</p>
+
+  <p>具体的には、Skills/Agentsは以下の2択になる:</p>
+
+  <ul>
+    <li><strong><code>~/.claude/skills/</code></strong>: 全プロジェクト共通（commit, review, research等の汎用Skills）</li>
+    <li><strong><code>.claude/skills/</code></strong>: プロジェクト固有（そのPJに特化したSkills）</li>
+  </ul>
+
+  <p>「マスタープロジェクトにSkillsを集約して各プロジェクトから参照する」というパターンは、現時点では実現できない。GitHub Issue #26489（2026年2月提出）でFeature Requestされているが未実装だ。<a class="cite" href="#src3">3<span class="cite-tooltip">GitHub Issue #26489 - Skills親ディレクトリ走査</span></a></p>
+
+  <h3>回避策: --add-dir と Plugin化</h3>
+
+  <p><code>--add-dir</code>オプションで外部ディレクトリのSkillsを読み込む回避策は存在する。ただしセッションごとに指定が必要で、運用コストが高い。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント - Configuration</span></a></p>
+
+  <p>より将来性のある方法として、<strong>Plugin化</strong>がある。Pluginにすれば名前空間分離（<code>plugin-name:skill-name</code>）でSkillsを配布可能になる。<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Plugins ドキュメント</span></a> ただしPluginエコシステムはまだ成熟途上であり、本格運用には時期尚早な面もある。</p>
+
+  <blockquote>
+    <p>Skillの<code>description</code>にはコンテキストウィンドウの2%（フォールバック16,000文字）という予算上限がある。Skillの中身を直接書かず「情報の見つけ方」を書くProgressive Disclosureがベストプラクティスだ。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a></p>
+  </blockquote>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="0">
+    <h4>理解チェック</h4>
+    <p>skills/ディレクトリの読み込みについて正しいのはどれか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CWD直下の.claude/skillsと~/.claude/skillsのみ参照され、親ディレクトリは走査しない</li>
+      <li data-idx="1">CLAUDE.mdと同様に親ディレクトリを遡って全て読み込む</li>
+      <li data-idx="2">settings.jsonで明示的に指定したパスからのみ読み込む</li>
+    </ul>
+    <div class="quiz-explain">正解。skills/は<code>~/.claude/skills/</code>（グローバル）と<code>.claude/skills/</code>（CWD直下）の2箇所のみ参照します。CLAUDE.mdのように親を遡る動作はありません。これがSkills配置戦略の最大の制約です。</div>
+  </div>
+</section>
+
+<!-- ── スケーラビリティ ── -->
+<section id="scalability">
+  <h2>スケーラビリティ ― 10+プロジェクトをどう管理するか</h2>
+
+  <p>プロジェクト数が増えてくると、設定の管理コストが爆発的に増加する。10以上のプロジェクトを効率的に管理するには、<strong>テンプレートリポジトリ + グローバルCLAUDE.md + コンテキスト予算管理</strong>の3軸が鍵になる。<a class="cite" href="#src5">5<span class="cite-tooltip">Trail of Bits - claude-code-config テンプレート</span></a></p>
+
+  <h3>テンプレートリポジトリの活用</h3>
+
+  <p>Trail of Bitsが公開しているOSSテンプレート「claude-code-config」は、新プロジェクト初期化時に<code>.claude/</code>以下の設定一式をコピーできる仕組みを提供している。<a class="cite" href="#src5">5<span class="cite-tooltip">Trail of Bits - claude-code-config テンプレート</span></a> これにより、ベストプラクティスを各プロジェクトに横展開できる。</p>
+
+  <h3>CLAUDE.mdの簡潔さが命</h3>
+
+  <p>CLAUDE.mdは<strong>200行以下</strong>が推奨されている。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a> Progressive Disclosure（情報を直接書かず見つけ方を書く）が公式ベストプラクティスだ。例えば「コーディング規約の詳細は<code>docs/coding-standards.md</code>を参照」のように、ポインタだけを記載する。</p>
+
+  <h3>並列作業: Agent Teams</h3>
+
+  <p>Agent Teamsを使えば、複数エージェントが独自コンテキストで並列作業できる。<a class="cite" href="#src6">6<span class="cite-tooltip">Claude Code Agent Teams ドキュメント</span></a> また、CCPM（Claude Code Project Manager）はGitHub Issues + worktreesの組み合わせで、大規模プロジェクトの分割管理を実現している。<a class="cite" href="#src7">7<span class="cite-tooltip">CCPM - Claude Code Project Manager</span></a></p>
+
+  <pre><code># CLAUDE.mdの悪い例（長すぎる）
+# 200行超のルールを全部直接記載...
+
+# CLAUDE.mdの良い例（Progressive Disclosure）
+## コーディング規約
+@docs/coding-standards.md を参照
+
+## テスト方針
+@docs/testing-guide.md を参照
+
+## API設計
+@docs/api-design.md を参照</code></pre>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="2">
+    <h4>理解チェック</h4>
+    <p>CLAUDE.mdの推奨ベストプラクティスはどれか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">全ルールを1ファイルに詳細に記載し、1000行以上にする</li>
+      <li data-idx="1">CLAUDE.mdは使わず、全てsettings.jsonで管理する</li>
+      <li data-idx="2">200行以下に抑え、詳細は外部ファイルへのポインタ（Progressive Disclosure）で記載する</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.mdは200行以下が推奨で、Progressive Disclosure（情報を直接書かず見つけ方を書く）が公式ベストプラクティスです。コンテキストウィンドウの節約にも繋がります。</div>
+  </div>
+</section>
+
+<!-- ── 横断テーマ ── -->
+<section id="crosscutting">
+  <h2>横断テーマ ― 全ての設計判断を貫く3つの軸</h2>
+
+  <h3>コンテキストウィンドウが中心制約</h3>
+
+  <p>CLAUDE.mdの簡潔さ、Skillsのプログレッシブ・ディスクロージャ、<code>.claudeignore</code>による除外 ― 全てがトークン消費の最適化に帰着する。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a> 1Mトークン化で改善されたが、設計の中心制約であることは変わらない。</p>
+
+  <h3>「助言的」vs「決定論的」の使い分け</h3>
+
+  <p>CLAUDE.mdの指示遵守率は<strong>約80%</strong>と言われている。<a class="cite" href="#src8">8<span class="cite-tooltip">Claude Code コミュニティ情報</span></a> 100%実行が必要なルールは<strong>Hooks</strong>で強制する。ベストプラクティスは3層防御モデルだ:</p>
+
+  <ol>
+    <li><strong>CLAUDE.md</strong>（助言的 / ~80%遵守）: スタイルガイド、慣習、推奨パターン</li>
+    <li><strong>Hooks</strong>（決定論的 / 100%実行）: lint実行、テスト、フォーマット</li>
+    <li><strong>CI/CD</strong>（最終防衛線）: プッシュ後の自動チェック</li>
+  </ol>
+
+  <h3>非対称な階層走査がモノレポの課題</h3>
+
+  <p>CLAUDE.mdは親を遡るがskills/settings.jsonは遡らない。この非対称性がモノレポでの設定共有を複雑にしており、複数のGitHub Issueで改善が要求されている。<a class="cite" href="#src3">3<span class="cite-tooltip">GitHub Issue #26489 - Skills親ディレクトリ走査</span></a><a class="cite" href="#src9">9<span class="cite-tooltip">GitHub Issue #12962 - settings.json親ディレクトリ走査</span></a></p>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="1">
+    <h4>理解チェック</h4>
+    <p>CLAUDE.mdの遵守率が約80%である場合、100%実行が必要なルールにはどう対処すべきか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CLAUDE.mdに太字で強調して記載する</li>
+      <li data-idx="1">Hooksで強制実行する</li>
+      <li data-idx="2">毎回手動で確認する</li>
+    </ul>
+    <div class="quiz-explain">正解。CLAUDE.mdは助言的（約80%遵守）なので、100%実行が必要なルールはHooksで決定論的に強制します。さらにCI/CDを最終防衛線として組み合わせるのがベストプラクティスです。</div>
+  </div>
+</section>
+
+<!-- ── 推奨アクション ── -->
+<section id="actions">
+  <h2>推奨アクション ― 今日から始めるステップ</h2>
+
+  <h3>即座に実行可能</h3>
+
+  <ol class="steps">
+    <li><strong>グローバルCLAUDE.mdを定義</strong>: <code>~/.claude/CLAUDE.md</code>に全プロジェクト共通ルールを200行以下で記載する。<a class="cite" href="#src1">1<span class="cite-tooltip">Claude Code 公式ドキュメント - Settings</span></a></li>
+    <li><strong>汎用Skillsを集約</strong>: <code>~/.claude/skills/</code>にcommit, review, research等の汎用Skillsを配置する。</li>
+    <li><strong>settings.jsonをgit管理</strong>: 各プロジェクトの<code>.claude/settings.json</code>をgitコミットしチーム共有する。<a class="cite" href="#src2">2<span class="cite-tooltip">Claude Code 公式ドキュメント - Configuration</span></a></li>
+    <li><strong>.claudeignoreで除外</strong>: <code>node_modules/</code>、<code>dist/</code>等をコンテキストから除外する。</li>
+  </ol>
+
+  <h3>中期的に検討</h3>
+
+  <ul>
+    <li><strong>テンプレートリポジトリ</strong>を作成し、新プロジェクト初期化時にコピー<a class="cite" href="#src5">5<span class="cite-tooltip">Trail of Bits - claude-code-config テンプレート</span></a></li>
+    <li>確定的ルール（lint, test実行）を<strong>Hooks</strong>で実装</li>
+    <li>成熟したSkillsを<strong>Plugin化</strong>して再利用性を向上<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Plugins ドキュメント</span></a></li>
+  </ul>
+
+  <div class="warn">
+    <strong>将来の機能追加を待つ項目</strong>: skills/の親ディレクトリ走査（Issue #26489）、settings.jsonの親ディレクトリ走査（Issue #12962）、マルチリポジトリ同時操作（Issue #23627）は全て未実装。これらが実装されればモノレポ運用が大幅に改善される。
+  </div>
+
+  <!-- クイズ5 -->
+  <div class="quiz" data-answer="0">
+    <h4>理解チェック</h4>
+    <p>Claude Codeプロジェクト管理の「即座に実行可能」なアクションとして適切でないものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">マスタープロジェクトにSkillsを集約して各PJから参照する</li>
+      <li data-idx="1">~/.claude/CLAUDE.mdにグローバル共通ルールを定義する</li>
+      <li data-idx="2">.claudeignoreでnode_modules等を除外する</li>
+    </ul>
+    <div class="quiz-explain">正解。Skills/の親ディレクトリ走査は未実装のため、マスタープロジェクトへの集約は現時点では不可能です。代わりに<code>~/.claude/skills/</code>に汎用Skillsを配置するのが正解です。</div>
+  </div>
+</section>
+
+<!-- ── 未解決の問い ── -->
+<section id="unresolved">
+  <h2>未解決の問い ― 今後のウォッチポイント</h2>
+
+  <p>Claude Codeのプロジェクト管理機能は急速に進化しているが、いくつかの重要な課題が未解決のまま残っている:</p>
+
+  <ul>
+    <li><strong>skills/agents/commandsの親ディレクトリ走査</strong>（Issue #26489）の実装時期は未定<a class="cite" href="#src3">3<span class="cite-tooltip">GitHub Issue #26489 - Skills親ディレクトリ走査</span></a></li>
+    <li><strong>settings.jsonの親ディレクトリ走査</strong>（Issue #12962）も未実装<a class="cite" href="#src9">9<span class="cite-tooltip">GitHub Issue #12962 - settings.json親ディレクトリ走査</span></a></li>
+    <li><strong>マルチリポジトリ同時操作</strong>（Issue #23627）の公式サポート予定は不明<a class="cite" href="#src10">10<span class="cite-tooltip">GitHub Issue #23627 - マルチリポジトリ操作</span></a></li>
+    <li>CLAUDE.mdの遵守率「約80%」の定量的根拠は<strong>コミュニティ情報</strong>であり公式データなし<a class="cite" href="#src8">8<span class="cite-tooltip">Claude Code コミュニティ情報</span></a></li>
+    <li>Pluginエコシステムはまだ<strong>成熟途上</strong><a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Plugins ドキュメント</span></a></li>
+  </ul>
+</section>
+
+<!-- ── 出典 ── -->
+<section class="sources" id="sources">
+  <h2>出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://docs.anthropic.com/en/docs/claude-code/settings" target="_blank" rel="noopener">Claude Code 公式ドキュメント - Settings</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://docs.anthropic.com/en/docs/claude-code/configuration" target="_blank" rel="noopener">Claude Code 公式ドキュメント - Configuration</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://github.com/anthropics/claude-code/issues/26489" target="_blank" rel="noopener">GitHub Issue #26489 - Skills親ディレクトリ走査 Feature Request</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://docs.anthropic.com/en/docs/claude-code/plugins" target="_blank" rel="noopener">Claude Code Plugins ドキュメント</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://github.com/trailofbits/claude-code-config" target="_blank" rel="noopener">Trail of Bits - claude-code-config テンプレート (GitHub)</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://docs.anthropic.com/en/docs/claude-code/agent-teams" target="_blank" rel="noopener">Claude Code Agent Teams ドキュメント</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://github.com/anthropics/claude-code/discussions" target="_blank" rel="noopener">CCPM - Claude Code Project Manager (GitHub Issues + Worktrees)</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://community.anthropic.com/" target="_blank" rel="noopener">Claude Code コミュニティ情報（遵守率に関する議論）</a></li>
+    <li id="src9"><span class="source-num">9</span><a href="https://github.com/anthropics/claude-code/issues/12962" target="_blank" rel="noopener">GitHub Issue #12962 - settings.json親ディレクトリ走査</a></li>
+    <li id="src10"><span class="source-num">10</span><a href="https://github.com/anthropics/claude-code/issues/23627" target="_blank" rel="noopener">GitHub Issue #23627 - マルチリポジトリ同時操作</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

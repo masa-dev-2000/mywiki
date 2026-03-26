@@ -16,7 +16,7 @@
       "tags": ["AI", "Claude Code", "生産性"],
       "description": "Claude Codeを使った開発生産性の最大化手法。",
       "status": "fern",
-      "path": "claude-code-productivity/slides.html"
+      "path": "claude-code-productivity/article.html"
     },
     {
       "id": "ai-enterprise-risks",
@@ -25,7 +25,7 @@
       "tags": ["AI", "ビジネス", "リスク管理"],
       "description": "企業がAIを導入する際のリスク要因と実践的な対策フレームワーク。",
       "status": "fern",
-      "path": "ai-enterprise-risks/slides.html"
+      "path": "ai-enterprise-risks/article.html"
     },
     {
       "id": "ai-basics-90min-workshop",
@@ -34,7 +34,7 @@
       "tags": ["AI", "教育", "ワークショップ"],
       "description": "非エンジニア向けAI基礎知識を90分で学ぶワークショップ資料。",
       "status": "evergreen",
-      "path": "ai-basics-90min-workshop/slides.html"
+      "path": "ai-basics-90min-workshop/article.html"
     },
     {
       "id": "keiba-ai-development",
@@ -43,7 +43,7 @@
       "tags": ["AI", "機械学習", "競馬"],
       "description": "機械学習を活用した競馬予測モデルの開発過程と知見。",
       "status": "seed",
-      "path": "keiba-ai-development/slides.html"
+      "path": "keiba-ai-development/article.html"
     },
     {
       "id": "oil-industry-structure",
@@ -52,7 +52,7 @@
       "tags": ["ビジネス", "エネルギー", "業界分析"],
       "description": "石油業界のバリューチェーン、主要プレイヤー、市場動向の分析。",
       "status": "fern",
-      "path": "oil-industry-structure/slides.html"
+      "path": "oil-industry-structure/article.html"
     },
     {
       "id": "instagram-video-automation",
@@ -61,7 +61,7 @@
       "tags": ["SNS", "自動化", "マーケティング"],
       "description": "Instagramリール動画の自動生成・投稿パイプライン構築。",
       "status": "seed",
-      "path": "instagram-video-automation/slides.html"
+      "path": "instagram-video-automation/article.html"
     },
     {
       "id": "claude-code-project-management",
@@ -70,7 +70,7 @@
       "tags": ["AI", "Claude Code", "プロジェクト管理"],
       "description": "Claude Codeを活用したプロジェクト管理のベストプラクティス。",
       "status": "fern",
-      "path": "claude-code-project-management/slides.html"
+      "path": "claude-code-project-management/article.html"
     },
     {
       "id": "claude-code-agent-team",
@@ -79,8 +79,8 @@
       "tags": ["AI", "Claude Code", "エージェント"],
       "description": "複数のClaude Codeエージェントをチームとして活用する手法。",
       "status": "seed",
-      "path": "claude-code-agent-team/slides.html"
+      "path": "claude-code-agent-team/article.html"
     }
   ],
-  "updatedAt": "2025-03-25T00:00:00Z"
+  "updatedAt": "2026-03-26T04:30:00Z"
 }

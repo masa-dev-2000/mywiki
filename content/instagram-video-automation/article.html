@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instagram動画自動化</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- パンくず -- */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* -- レイアウト -- */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* -- サイドバー目次（右側・折りたたみ） -- */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* -- ヘッダー -- */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* -- セクション -- */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* -- TL;DR -- */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* -- 引用・注意 -- */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+
+/* -- リスト -- */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* -- テーブル -- */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* -- コードブロック -- */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* -- Mermaid図 -- */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* -- タグ -- */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* -- ステップ -- */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* -- インライン出典 -- */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* -- 出典 -- */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* -- クイズ -- */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* -- フッター -- */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* -- 印刷 -- */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">← Wiki トップへ戻る</a>
+  <span>›</span>
+  Instagram動画自動化
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">TL;DR</a></li>
+    <li><a href="#stack">3層スタック</a></li>
+    <li><a href="#algorithm">アルゴリズム戦略</a></li>
+    <li><a href="#democratization">AI民主化と差別化</a></li>
+    <li><a href="#tools">ツール比較</a></li>
+    <li><a href="#roadmap">推奨アクション</a></li>
+    <li><a href="#unresolved">未解決の問い</a></li>
+    <li><a href="#sources">出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>Instagram動画自動化<br>AI×テンプレート×パイプラインの実践ガイド</h1>
+  <p class="meta">
+    <span>📅 2026-03-26</span>
+    <span>⏱ 約12分で読める</span>
+  </p>
+  <div>
+    <span class="tag">Instagram</span>
+    <span class="tag">AI動画</span>
+    <span class="tag">自動化</span>
+    <span class="tag">Reels</span>
+    <span class="tag">コンテンツ戦略</span>
+  </div>
+</header>
+
+<!-- -- TL;DR -- -->
+<section class="tldr" id="tldr">
+  <h2>TL;DR</h2>
+  <p>Instagram動画制作は<strong>「AI動画生成 × テンプレート量産 × 自動化パイプライン」</strong>の3層スタックにより、制作コスト90%削減・時間60%短縮が実現可能。ただし差別化の鍵は技術力ではなく、<strong>最初の1.7秒のフック設計</strong>と<strong>シェアされるストーリーテリング</strong>にある。<a class="cite" href="#src1">1<span class="cite-tooltip">Creatomate 自動化チュートリアル</span></a></p>
+</section>
+
+<!-- -- 3層スタック -- -->
+<section id="stack">
+  <h2>⚡ 3層スタックによる制作パイプライン</h2>
+
+  <p>Instagram動画の量産を実現する鍵は、<strong>AI動画生成・テンプレート・自動化ツール</strong>の3層を組み合わせることにある。Airtable + Make.com + Creatomate + Instagram Business APIの完全自動化パイプラインは、既に公式チュートリアルで実証済みだ。<a class="cite" href="#src1">1<span class="cite-tooltip">Creatomate 自動化チュートリアル</span></a></p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph layer1["Layer 1: AI動画生成"]
+      K["Kling<br/>$0.60/本"]
+      P["Pika<br/>$0.15/本"]
+      R["Runway<br/>Gen-3"]
+    end
+
+    subgraph layer2["Layer 2: テンプレート量産"]
+      CC["CapCut<br/>テンプレート"]
+      CA["Canva<br/>動画テンプレ"]
+      CR["Creatomate<br/>API連携"]
+    end
+
+    subgraph layer3["Layer 3: 自動化パイプライン"]
+      AT["Airtable<br/>コンテンツDB"]
+      MK["Make.com<br/>ワークフロー"]
+      IG["Instagram<br/>Business API"]
+    end
+
+    layer1 --> layer2
+    layer2 --> layer3
+    AT --> MK
+    MK --> CR
+    CR --> IG
+
+    style layer1 fill:#eff6ff,stroke:#3b82f6
+    style layer2 fill:#f0fdf4,stroke:#22c55e
+    style layer3 fill:#fef3c7,stroke:#f59e0b
+    </pre>
+    <p class="diagram-caption">図1: Instagram動画自動化の3層スタック</p>
+  </div>
+
+  <h3>コスト革命: 99%の削減</h3>
+
+  <p>AI動画生成のコストは劇的に下がっている。Klingで1本あたり$0.60、Pikaなら$0.15。従来の外注費用（$1,000〜5,000/分）と比較すると<strong>99%のコスト削減</strong>を実現している。<a class="cite" href="#src2">2<span class="cite-tooltip">AI動画生成ツール比較レポート 2025</span></a></p>
+
+  <table>
+    <thead>
+      <tr><th>項目</th><th>従来（外注）</th><th>AI活用</th><th>削減率</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>制作コスト/本</td><td>$1,000〜5,000</td><td>$0.15〜0.60</td><td>99%</td></tr>
+      <tr><td>月間制作本数</td><td>8本</td><td>85本</td><td>10倍以上</td></tr>
+      <tr><td>週間制作時間</td><td>15〜20時間</td><td>6〜8時間</td><td>60%</td></tr>
+      <tr><td>12ヶ月ROI</td><td>--</td><td>4.4倍</td><td>--</td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>Clarity Mediaの事例では、月間制作本数を8本から85本へ拡大しつつ、コスト86%減、制作速度92%向上を達成。12ヶ月のROIは4.4倍に到達した。<a class="cite" href="#src3">3<span class="cite-tooltip">Clarity Media ケーススタディ</span></a></p>
+  </blockquote>
+
+  <p>個人や小規模チームでも、月額1万円程度の予算で企業レベルの動画量産が可能になった時代だ。バッチ制作のワークフローを確立すれば、週15〜20時間の作業を6〜8時間に圧縮できる。</p>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>AI動画生成ツール（Kling, Pika等）による動画1本あたりのコストは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">$50〜100</li>
+      <li data-idx="1">$0.15〜0.60</li>
+      <li data-idx="2">$10〜50</li>
+    </ul>
+    <div class="quiz-explain">正解。Pikaで$0.15/本、Klingで$0.60/本と、従来の外注費用（$1,000〜5,000/分）から99%の削減が実現しています。</div>
+  </div>
+
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>3層スタックの正しい組み合わせは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">企画 × 撮影 × 編集</li>
+      <li data-idx="1">SNS × 広告 × EC</li>
+      <li data-idx="2">AI動画生成 × テンプレート量産 × 自動化ツール</li>
+    </ul>
+    <div class="quiz-explain">正解。AI動画生成（Kling/Pika等）、テンプレート量産（CapCut/Creatomate等）、自動化ツール（Make.com/Airtable等）の3層が基本構成です。</div>
+  </div>
+</section>
+
+<!-- -- アルゴリズム戦略 -- -->
+<section id="algorithm">
+  <h2>🎯 アルゴリズム理解に基づく戦略設計</h2>
+
+  <p>ツールを揃えるだけでは成果は出ない。Instagramアルゴリズムの仕組みに沿ったコンテンツ戦略が不可欠だ。<a class="cite" href="#src4">4<span class="cite-tooltip">Adam Mosseri 公式発言まとめ</span></a></p>
+
+  <h3>DMシェア（Sends）が最重要指標</h3>
+
+  <p>Instagram責任者のAdam Mosseriが公式に言及した通り、<strong>DMシェア（Sends）はいいねの3〜5倍の重み</strong>を持つ。<a class="cite" href="#src4">4<span class="cite-tooltip">Adam Mosseri 公式発言まとめ</span></a> つまり「いいね」を狙うより「誰かに送りたくなる」コンテンツを作るべきだ。</p>
+
+  <h3>最初の3秒が勝負</h3>
+
+  <p>500本のバイラル動画を分析した調査によると、<strong>7〜15秒のリール</strong>がエンゲージメント最高値を記録している。<a class="cite" href="#src5">5<span class="cite-tooltip">バイラル動画分析レポート 2025</span></a> そして最初の3秒で視聴者の50%が離脱し、アルゴリズムが配信抑制の判断を下す。</p>
+
+  <h3>3層コンテンツ戦略</h3>
+
+  <p>効果的なInstagram運用は、目的別に3つのフォーマットを使い分ける:</p>
+
+  <table>
+    <thead>
+      <tr><th>フォーマット</th><th>目的</th><th>最適な長さ</th><th>配信範囲</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>リール</strong></td><td>認知拡大（リーチ）</td><td>7〜15秒</td><td>フォロワー外へ</td></tr>
+      <tr><td><strong>ストーリー</strong></td><td>関係構築</td><td>15秒以内</td><td>フォロワー内</td></tr>
+      <tr><td><strong>フィード投稿</strong></td><td>権威性・ブランド</td><td>--</td><td>フォロワー中心</td></tr>
+    </tbody>
+  </table>
+
+  <div class="warn">
+    <strong>量産は逆効果</strong>: Metricoolの調査では、投稿量を21%増やしたアカウントのリーチが31%低下した。<a class="cite" href="#src6">6<span class="cite-tooltip">Metricool Instagram投稿頻度調査</span></a> 「量産 × 高品質 × アルゴリズム最適化」の三角形を満たす設計が必要だ。
+  </div>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>Instagramアルゴリズムで「いいね」の3〜5倍の重みを持つ指標は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">DMシェア（Sends）</li>
+      <li data-idx="1">保存数</li>
+      <li data-idx="2">コメント数</li>
+    </ul>
+    <div class="quiz-explain">正解。Adam Mosseriの公式発言によると、DMシェア（Sends）がいいねの3〜5倍の重みを持ちます。「誰かに送りたくなる」コンテンツ設計が鍵です。</div>
+  </div>
+
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>バイラル動画の分析で最もエンゲージメントが高かったリールの長さは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">30〜60秒</li>
+      <li data-idx="1">7〜15秒</li>
+      <li data-idx="2">3〜5秒</li>
+    </ul>
+    <div class="quiz-explain">正解。500本のバイラル動画分析から、7〜15秒のリールがエンゲージメント最高値を記録しています。短すぎても長すぎても効果が落ちます。</div>
+  </div>
+</section>
+
+<!-- -- AI民主化と差別化 -- -->
+<section id="democratization">
+  <h2>🌊 AI民主化がもたらす競争環境の変化</h2>
+
+  <p>AI動画生成ツールの普及により、参入障壁は消滅しつつある。37%のクリエイターがAIをアイデア出しに、24%が全制作プロセスに活用している。<a class="cite" href="#src7">7<span class="cite-tooltip">クリエイターAI活用実態調査 2025</span></a> 差別化要因は「技術力」から「独自性・本物感」へシフトした。</p>
+
+  <h3>Facelessコンテンツの急成長</h3>
+
+  <p>顔出しなし（Faceless）コンテンツが新規マネタイズ案件の38%を占めるようになった。2022年の12%から<strong>217%増</strong>という急成長だ。<a class="cite" href="#src7">7<span class="cite-tooltip">クリエイターAI活用実態調査 2025</span></a> AI動画生成との相性は抜群で、個人でも顔出しせずに高品質な動画を量産できる。</p>
+
+  <h3>オリジナルコンテンツが圧倒的に有利</h3>
+
+  <p>Instagramのアルゴリズムは明確にオリジナルコンテンツを優遇している:</p>
+
+  <ul>
+    <li><strong>オリジナルコンテンツ</strong>: リーチ40〜60%増<a class="cite" href="#src8">8<span class="cite-tooltip">Instagram 2025 アルゴリズムアップデート</span></a></li>
+    <li><strong>リポスト・再利用系</strong>: リーチ60〜80%減<a class="cite" href="#src8">8<span class="cite-tooltip">Instagram 2025 アルゴリズムアップデート</span></a></li>
+    <li><strong>カルーセル投稿</strong>: インプレッション・インタラクション共に全フォーマット最高値<a class="cite" href="#src5">5<span class="cite-tooltip">バイラル動画分析レポート 2025</span></a></li>
+  </ul>
+
+  <p>Instagramの新しい動画編集アプリ「Edits」のグローバル展開も進み、プラットフォーム内蔵のAI機能も急速に進化している。<a class="cite" href="#src8">8<span class="cite-tooltip">Instagram 2025 アルゴリズムアップデート</span></a> AI活用は前提条件になりつつあり、真の差別化は<strong>「何を伝えるか」「誰に響くか」</strong>の企画力にある。</p>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>AI動画の普及により、Instagram上での差別化の鍵はどこにシフトしたか？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">使用するAIツールの種類</li>
+      <li data-idx="1">動画の画質・解像度</li>
+      <li data-idx="2">独自性・本物感とストーリーテリング</li>
+    </ul>
+    <div class="quiz-explain">正解。AIツールは誰でも使えるため技術力では差がつきません。「何を伝えるか」「誰に響くか」という企画力と独自のストーリーテリングが真の差別化要因です。</div>
+  </div>
+</section>
+
+<!-- -- ツール比較 -- -->
+<section id="tools">
+  <h2>🛠️ 主要ツール比較</h2>
+
+  <p>現在利用可能な主要ツールを、用途別に整理する。<a class="cite" href="#src2">2<span class="cite-tooltip">AI動画生成ツール比較レポート 2025</span></a></p>
+
+  <h3>AI動画生成ツール</h3>
+
+  <table>
+    <thead>
+      <tr><th>ツール</th><th>価格/本</th><th>特徴</th><th>向いている用途</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Kling</strong></td><td>$0.60</td><td>高品質、安定した出力</td><td>本格的なプロモーション動画</td></tr>
+      <tr><td><strong>Pika</strong></td><td>$0.15</td><td>低コスト、高速</td><td>大量のショート動画</td></tr>
+      <tr><td><strong>Runway Gen-3</strong></td><td>$0.50〜</td><td>高度な編集機能</td><td>クリエイティブ重視の作品</td></tr>
+      <tr><td><strong>Sora</strong></td><td>ChatGPT Plus内</td><td>テキストからの動画生成</td><td>コンセプト動画の試作</td></tr>
+    </tbody>
+  </table>
+
+  <h3>編集・テンプレートツール</h3>
+
+  <table>
+    <thead>
+      <tr><th>ツール</th><th>価格</th><th>強み</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>CapCut</strong></td><td>無料（Pro有料）</td><td>テンプレート豊富、AI字幕自動生成</td></tr>
+      <tr><td><strong>Canva</strong></td><td>無料〜</td><td>デザインテンプレート、ブランドキット</td></tr>
+      <tr><td><strong>Creatomate</strong></td><td>API課金</td><td>API連携で完全自動化が可能</td></tr>
+    </tbody>
+  </table>
+
+  <h3>自動化・スケジューリング</h3>
+
+  <table>
+    <thead>
+      <tr><th>ツール</th><th>価格</th><th>役割</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Make.com</strong></td><td>無料〜</td><td>ワークフロー自動化（Zapier代替）</td></tr>
+      <tr><td><strong>Buffer</strong></td><td>無料〜</td><td>投稿スケジューリング</td></tr>
+      <tr><td><strong>Airtable</strong></td><td>無料〜</td><td>コンテンツカレンダー・DB管理</td></tr>
+    </tbody>
+  </table>
+
+  <!-- クイズ4 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>完全自動化パイプラインでAPI連携に適したテンプレートツールは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">CapCut</li>
+      <li data-idx="1">Creatomate</li>
+      <li data-idx="2">InShot</li>
+    </ul>
+    <div class="quiz-explain">正解。CreatomateはAPI連携に対応しており、Make.comやAirtableと組み合わせて完全自動化パイプラインを構築できます。</div>
+  </div>
+</section>
+
+<!-- -- 推奨アクション -- -->
+<section id="roadmap">
+  <h2>🚀 推奨アクション・ロードマップ</h2>
+
+  <p>全部を一度に構築する必要はない。段階的に自動化レベルを上げていこう。</p>
+
+  <ol class="steps">
+    <li><strong>即実行</strong>: CapCut（無料）+ Buffer（無料）でテンプレートベースの動画制作を開始する。まずは既存テンプレートをカスタマイズして週2〜3本を制作。</li>
+    <li><strong>30日以内</strong>: コンテンツカレンダーをAirtableで設計し、バッチ制作ワークフローを確立する。1回の制作セッションで1週間分をまとめて作る。</li>
+    <li><strong>60日以内</strong>: Make.com + Creatomateで自動化パイプラインを構築する。企画→制作→投稿までの半自動化を実現。<a class="cite" href="#src1">1<span class="cite-tooltip">Creatomate 自動化チュートリアル</span></a></li>
+    <li><strong>継続</strong>: Instagram Insightsで自アカウントの最適投稿時間・フォーマットをA/Bテストし続ける。データに基づいた改善サイクルを回す。</li>
+  </ol>
+
+  <div class="warn">
+    <strong>量より質を忘れずに</strong>: 自動化で制作効率が上がっても、投稿量を闇雲に増やすとリーチが低下する。Metricoolのデータが示す通り、量と質のバランスが重要だ。<a class="cite" href="#src6">6<span class="cite-tooltip">Metricool Instagram投稿頻度調査</span></a>
+  </div>
+</section>
+
+<!-- -- 未解決の問い -- -->
+<section id="unresolved">
+  <h2>❓ 未解決の問い・留意点</h2>
+
+  <p>この分野にはまだ明確な答えが出ていない論点がいくつかある:</p>
+
+  <ul>
+    <li><strong>AI生成コンテンツへのペナルティ</strong>: InstagramアルゴリズムがAI生成コンテンツをどう評価するか（ペナルティの有無）は未確定<a class="cite" href="#src8">8<span class="cite-tooltip">Instagram 2025 アルゴリズムアップデート</span></a></li>
+    <li><strong>品質安定性</strong>: AI動画の失敗生成率（意図しない出力の割合）に関するデータが不足している</li>
+    <li><strong>日本市場固有の事例</strong>: グローバルの成功事例は豊富だが、日本市場に特化した信頼性の高い事例は限定的</li>
+    <li><strong>長期的な飽和リスク</strong>: AIコンテンツの増加による全体的なエンゲージメント低下のリスクが潜在的に存在する</li>
+  </ul>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 総まとめクイズ</h4>
+    <p>本記事の主要結論として最も正確なものは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">AI×テンプレート×自動化でコスト90%削減は可能だが、差別化の鍵はフック設計とストーリーテリングにある</li>
+      <li data-idx="1">AIツールを使えば誰でも自動的にバイラルする動画が作れる</li>
+      <li data-idx="2">Instagram動画はすべてAI生成に置き換えるべきである</li>
+    </ul>
+    <div class="quiz-explain">正解。技術的なコスト削減は実証済みですが、アルゴリズムが重視するのは「シェアされるコンテンツ」であり、最初の数秒のフック設計と独自のストーリーテリングが成果を左右します。量産しても質が伴わなければリーチは伸びません。</div>
+  </div>
+</section>
+
+<!-- -- 出典 -- -->
+<section class="sources" id="sources">
+  <h2>📚 出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://creatomate.com/blog/how-to-automate-instagram-posts" target="_blank" rel="noopener">Creatomate — Instagram投稿自動化チュートリアル</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://www.synthesia.io/post/ai-video-generator" target="_blank" rel="noopener">AI動画生成ツール比較レポート 2025</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://www.claritymedia.io/case-studies" target="_blank" rel="noopener">Clarity Media — AI動画制作ケーススタディ</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://about.instagram.com/blog" target="_blank" rel="noopener">Adam Mosseri 公式発言 — Instagram公式ブログ</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://www.socialinsider.io/blog/instagram-reels-study/" target="_blank" rel="noopener">バイラル動画分析レポート — Social Insider</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://metricool.com/instagram-study/" target="_blank" rel="noopener">Metricool — Instagram投稿頻度とリーチの関係調査</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://influencermarketinghub.com/ai-marketing-statistics/" target="_blank" rel="noopener">クリエイターAI活用実態調査 2025</a></li>
+    <li id="src8"><span class="source-num">8</span><a href="https://about.instagram.com/blog/announcements" target="_blank" rel="noopener">Instagram 2025-2026 アルゴリズムアップデート</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>
