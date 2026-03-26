@@ -4,45 +4,36 @@ import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   src: string;
-  baseWidth?: number;
 }
 
-export default function IframeViewer({ src, baseWidth = 960 }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+export default function IframeViewer({ src }: Props) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [height, setHeight] = useState(800);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width;
-        setScale(Math.min(w / baseWidth, 1));
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'resize' && typeof e.data.height === 'number') {
+        setHeight(e.data.height + 32); // padding余白
       }
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [baseWidth]);
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   return (
-    <div ref={containerRef} className="iframe-container">
-      <div
-        className="iframe-scaler"
+    <div className="iframe-container">
+      <iframe
+        ref={iframeRef}
+        src={src}
+        title="コンテンツ"
+        sandbox="allow-scripts allow-same-origin"
         style={{
-          width: baseWidth,
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          height: baseWidth * 0.5625, // 16:9
+          width: '100%',
+          height: `${height}px`,
+          border: 'none',
+          borderRadius: '12px',
         }}
-      >
-        <iframe
-          src={src}
-          title="コンテンツ"
-          sandbox="allow-scripts allow-same-origin"
-          style={{ width: '100%', height: '100%', border: 'none' }}
-        />
-      </div>
+      />
     </div>
   );
 }

@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>個人Wikiを Claude Codeに「勝手に書かせる」方法</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'neutral', themeVariables:{fontSize:'18px', nodeTextSize:'16px'}});</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+:root {
+  --bg: #fafaf9;
+  --text: #1a1a1a;
+  --text-sub: #6b7280;
+  --accent: #6366f1;
+  --accent-light: #e0e7ff;
+  --border: #e5e7eb;
+  --surface: #ffffff;
+  --tag-bg: #f3f4f6;
+  --quote-bg: #f0fdf4;
+  --quote-border: #22c55e;
+  --tldr-bg: #eff6ff;
+  --tldr-border: #3b82f6;
+  --warn-bg: #fffbeb;
+  --warn-border: #f59e0b;
+  --quiz-bg: #faf5ff;
+  --quiz-border: #a855f7;
+  --sidebar-w: 240px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.85;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── パンくず ── */
+.breadcrumb {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,249,0.95);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  font-size: 0.85em;
+  z-index: 100;
+}
+.breadcrumb a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.breadcrumb a:hover { text-decoration: underline; }
+.breadcrumb span { color: var(--text-sub); margin: 0 6px; }
+
+/* ── レイアウト ── */
+.layout {
+  display: flex;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+article {
+  flex: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 32px 80px;
+}
+
+/* ── サイドバー目次（右側・折りたたみ） ── */
+.toc {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: var(--sidebar-w);
+  height: calc(100vh - 48px);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 0.82em;
+  z-index: 90;
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.05);
+}
+.toc.collapsed {
+  transform: translateX(100%);
+}
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.toc h4 {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-sub);
+  margin: 0;
+}
+.toc-close {
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: var(--text-sub);
+  padding: 4px;
+  border-radius: 4px;
+}
+.toc-close:hover { background: var(--tag-bg); }
+.toc ol { list-style: none; padding: 0; }
+.toc li { margin-bottom: 6px; }
+.toc a {
+  color: var(--text-sub);
+  text-decoration: none;
+  display: block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  line-height: 1.4;
+}
+.toc a:hover, .toc a.active {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+/* TOCトグルボタン（常時表示） */
+.toc-toggle {
+  position: fixed;
+  top: 56px;
+  right: 12px;
+  z-index: 95;
+  background: var(--accent);
+  color: white;
+  border: none;
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toc-toggle:hover { opacity: 0.9; transform: scale(1.05); }
+.toc-toggle.hidden { display: none; }
+
+/* モバイル */
+@media (max-width: 900px) {
+  .toc { width: 260px; }
+  article { padding: 24px 20px 80px; }
+}
+
+/* ── ヘッダー ── */
+header { margin-bottom: 40px; border-bottom: 1px solid var(--border); padding-bottom: 24px; }
+header h1 {
+  font-size: 1.8em;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+.meta { color: var(--text-sub); font-size: 0.9em; }
+.meta span { margin-right: 16px; }
+
+/* ── セクション ── */
+section { margin-bottom: 48px; }
+h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--accent-light);
+  letter-spacing: -0.01em;
+  scroll-margin-top: 56px;
+}
+h3 {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 24px 0 12px;
+  color: var(--accent);
+}
+
+p { margin-bottom: 16px; }
+
+/* ── TL;DR ── */
+.tldr {
+  background: var(--tldr-bg);
+  border-left: 4px solid var(--tldr-border);
+  border-radius: 0 12px 12px 0;
+  padding: 20px 24px;
+  margin-bottom: 40px;
+}
+.tldr h2 { border: none; padding: 0; margin-bottom: 8px; font-size: 1.1em; }
+.tldr p { margin: 0; font-size: 1.05em; line-height: 1.8; }
+
+/* ── 引用・注意 ── */
+blockquote {
+  background: var(--quote-bg);
+  border-left: 4px solid var(--quote-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-style: normal;
+}
+.warn {
+  background: var(--warn-bg);
+  border-left: 4px solid var(--warn-border);
+  border-radius: 0 8px 8px 0;
+  padding: 16px 20px;
+  margin: 20px 0;
+}
+.warn::before { content: "⚠️ "; }
+
+/* ── リスト ── */
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 8px; }
+li strong { color: var(--accent); }
+
+/* ── テーブル ── */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.9em; }
+th {
+  background: var(--accent);
+  color: white;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 500;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: var(--tag-bg); }
+
+/* ── コードブロック ── */
+pre {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.6;
+  margin: 20px 0;
+}
+code {
+  font-family: 'Fira Code', 'SF Mono', 'Consolas', monospace;
+  background: var(--tag-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.88em;
+}
+pre code { background: none; padding: 0; }
+
+/* ── Mermaid図 ── */
+.diagram-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 24px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+.diagram-caption {
+  text-align: center;
+  color: var(--text-sub);
+  font-size: 0.85em;
+  margin-top: 12px;
+}
+
+/* ── タグ ── */
+.tag {
+  display: inline-block;
+  background: var(--tag-bg);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  color: var(--text-sub);
+  margin-right: 4px;
+}
+
+/* ── ステップ ── */
+.steps { counter-reset: step; list-style: none; padding-left: 0; }
+.steps li {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+.steps li::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 0;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+/* ── インライン出典 ── */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.65em;
+  font-weight: 700;
+  text-decoration: none;
+  vertical-align: super;
+  margin: 0 1px;
+  cursor: pointer;
+  position: relative;
+}
+.cite:hover { opacity: 0.8; }
+.cite-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 50;
+  font-weight: 400;
+}
+.cite:hover .cite-tooltip { display: block; }
+
+/* ── 出典 ── */
+.sources ul { list-style: none; padding: 0; }
+.sources li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+.sources a { color: var(--accent); text-decoration: none; }
+.sources a:hover { text-decoration: underline; }
+.source-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: var(--accent);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.7em;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+/* ── クイズ ── */
+.quiz {
+  background: var(--quiz-bg);
+  border: 2px solid var(--quiz-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 32px 0;
+}
+.quiz h4 {
+  color: var(--quiz-border);
+  font-size: 0.9em;
+  margin-bottom: 12px;
+}
+.quiz-options { list-style: none; padding: 0; }
+.quiz-options li {
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95em;
+}
+.quiz-options li:hover { border-color: var(--quiz-border); background: #faf5ff; }
+.quiz-options li.correct {
+  background: #dcfce7;
+  border-color: #22c55e;
+  pointer-events: none;
+}
+.quiz-options li.wrong {
+  background: #fee2e2;
+  border-color: #ef4444;
+  pointer-events: none;
+}
+.quiz-explain {
+  display: none;
+  margin-top: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+/* ── フッター ── */
+.article-footer {
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-sub);
+  font-size: 0.85em;
+  text-align: center;
+}
+
+/* ── 印刷 ── */
+@media print {
+  .breadcrumb, .toc, .quiz { display: none; }
+  body { font-size: 12px; }
+  article { max-width: none; padding: 0; }
+  .diagram-container { break-inside: avoid; }
+  pre { white-space: pre-wrap; }
+}
+</style>
+</head>
+<body>
+
+<!-- パンくず -->
+<nav class="breadcrumb">
+  <a href="../">📚 MyWiki</a>
+  <span>›</span>
+  個人Wiki × Claude Code
+</nav>
+
+<!-- TOCトグルボタン -->
+<button class="toc-toggle" id="tocToggle" aria-label="目次を開く">📑</button>
+
+<div class="layout">
+
+<!-- サイドバー目次（右側・折りたたみ） -->
+<nav class="toc collapsed" id="toc">
+  <div class="toc-header">
+    <h4>📑 目次</h4>
+    <button class="toc-close" id="tocClose" aria-label="目次を閉じる">✕</button>
+  </div>
+  <ol>
+    <li><a href="#tldr">💡 TL;DR</a></li>
+    <li><a href="#why">🤔 なぜ必要か</a></li>
+    <li><a href="#tools">🛠️ ツール選び</a></li>
+    <li><a href="#pipeline">⚡ 自動化パイプライン</a></li>
+    <li><a href="#structure">📂 ディレクトリ設計</a></li>
+    <li><a href="#trends">🔗 3つのトレンド</a></li>
+    <li><a href="#roadmap">🚀 始め方</a></li>
+    <li><a href="#sources">📚 出典</a></li>
+  </ol>
+</nav>
+
+<article>
+
+<header>
+  <h1>個人Wikiを Claude Codeに<br>「勝手に書かせる」方法</h1>
+  <p class="meta">
+    <span>📅 2025-03-25</span>
+    <span>⏱ 約10分で読める</span>
+  </p>
+  <div>
+    <span class="tag">AI</span>
+    <span class="tag">PKM</span>
+    <span class="tag">Claude Code</span>
+    <span class="tag">Obsidian</span>
+  </div>
+</header>
+
+<!-- ── TL;DR ── -->
+<section class="tldr" id="tldr">
+  <h2>💡 TL;DR</h2>
+  <p><strong>Obsidianのローカルmarkdownボールト＋Claude Code hooks/scheduled tasks</strong>を組み合わせれば、AIが自律的にナレッジを蓄積する「自動成長型wiki」を今すぐ構築できる。追加ツールやクラウドサービスは不要。</p>
+</section>
+
+<!-- ── 背景 ── -->
+<section id="why">
+  <h2>🤔 なぜ「AIが書くwiki」が必要なのか</h2>
+
+  <p>エンジニアとして日々学ぶことは多い。新しいライブラリを調べたり、バグの原因を突き止めたり、設計パターンを比較したり。しかし、それらの知見は大半が<strong>セッションの中で消えていく</strong>。</p>
+
+  <p>Claude Codeを使って開発していると、毎回同じような質問を繰り返していることに気づく。「あのAPI、前にどうやって使ったっけ？」「このバグ、前にも似たやつ解決したはずだけど…」</p>
+
+  <p>つまり問題は<strong>「学んだことが蓄積されない」</strong>こと。手動でメモを取る習慣がない（または続かない）なら、<strong>AIに自動で書かせればいい</strong>。</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart LR
+    A["💬 Claude Codeとの会話"] --> B["🧠 知見が生まれる"]
+    B --> C{"手動メモ？"}
+    C -->|"面倒で続かない"| D["💨 知見が消える"]
+    C -->|"自動化"| E["📝 Wikiに蓄積"]
+    E --> F["🔄 次のセッションで活用"]
+    F --> A
+    style D fill:#fee2e2,stroke:#ef4444
+    style E fill:#dcfce7,stroke:#22c55e
+    style F fill:#dbeafe,stroke:#3b82f6
+    </pre>
+    <p class="diagram-caption">図1: 知見の消失サイクル vs 自動蓄積サイクル</p>
+  </div>
+
+  <!-- クイズ1 -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 理解チェック</h4>
+    <p>Claude Codeで開発中に生まれた知見が失われる主な原因は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">Claude Codeの記憶容量が小さいから</li>
+      <li data-idx="1">知見が暗号化されて読めなくなるから</li>
+      <li data-idx="2">セッションが終わると文脈が消え、手動メモも続かないから</li>
+    </ul>
+    <div class="quiz-explain">✅ セッション終了で文脈が消失し、手動メモは習慣化が難しい。だからこそ<strong>自動書き込み</strong>が重要です。</div>
+  </div>
+</section>
+
+<!-- ── ツール選び ── -->
+<section id="tools">
+  <h2>🛠️ なぜObsidian一択なのか</h2>
+
+  <p>「個人wiki」と聞いて思い浮かぶツールは多い。Notion、Logseq、TiddlyWiki、MkDocs…。しかしClaude Codeとの相性を考えると、<strong>Obsidianが圧倒的に有利</strong>だ。<a class="cite" href="#src1">1<span class="cite-tooltip">Obsidian + Claude Code 統合ガイド</span></a></p>
+
+  <p>理由はシンプル。Claude Codeはローカルファイルの読み書きが得意だから。Obsidianのボールト（vault）は<strong>ただのフォルダ＋Markdownファイル</strong>であり、API認証もクラウド接続も不要。Claude Codeの<code>Read</code>/<code>Write</code>/<code>Edit</code>ツールでそのまま操作できる。</p>
+
+  <table>
+    <thead>
+      <tr><th>ツール</th><th>ファイル形式</th><th>CLI/自動化</th><th>AI連携</th><th>データ主権</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Obsidian</strong></td><td>ローカル .md</td><td>CLI公式対応</td><td>MCP/プラグイン豊富</td><td>✅ 完全ローカル</td></tr>
+      <tr><td>Logseq</td><td>ローカル .md</td><td>限定的</td><td>発展途上</td><td>✅ 完全ローカル</td></tr>
+      <tr><td>Notion</td><td>クラウドDB</td><td>API必要</td><td>Notion AI内蔵</td><td>❌ クラウド依存</td></tr>
+      <tr><td>TiddlyWiki</td><td>単一HTML</td><td>プログラマブル</td><td>限定的</td><td>✅ ローカル</td></tr>
+      <tr><td>MkDocs</td><td>ローカル .md</td><td>静的サイト生成</td><td>なし</td><td>✅ 完全ローカル</td></tr>
+    </tbody>
+  </table>
+
+  <blockquote>
+    <p>Obsidian CLIの登場（v1.12）により、ボールト内の全文検索がプログラムから直接実行可能に。<a class="cite" href="#src2">2<span class="cite-tooltip">kepano/obsidian-skills (GitHub)</span></a> Claude CodeのMCP経由で「この概念について過去に書いたノートある？」といった検索が瞬時にできるようになった。</p>
+  </blockquote>
+
+  <h3>データ主権という観点</h3>
+
+  <p>Notionは優れたツールだが、データはクラウドに保存される。個人の思考・学習記録をクラウドに依存させるリスクを考えると、<strong>ローカルファイルであること</strong>は大きな安心材料だ。Git管理も容易で、バックアップや履歴追跡も自然にできる。</p>
+
+  <!-- クイズ2 -->
+  <div class="quiz" data-answer="1">
+    <h4>🧠 理解チェック</h4>
+    <p>Claude Codeとの相性でObsidianが他のツールより優れている最大の理由は？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">プラグインが最も多いから</li>
+      <li data-idx="1">ローカルのMarkdownファイルをAPIなしで直接読み書きできるから</li>
+      <li data-idx="2">無料で使えるから</li>
+    </ul>
+    <div class="quiz-explain">✅ Claude Codeの <code>Read</code>/<code>Write</code>/<code>Edit</code> ツールで直接ファイル操作できるのが最大の強み。APIやクラウド認証が不要です。</div>
+  </div>
+</section>
+
+<!-- ── 自動化パイプライン ── -->
+<section id="pipeline">
+  <h2>⚡ 自動書き込みパイプラインの全体像</h2>
+
+  <p>Claude Codeには<strong>25種類のhookイベント</strong>がある。<a class="cite" href="#src3">3<span class="cite-tooltip">Claude Code Hooks 公式ドキュメント</span></a> これを組み合わせれば、コーディング中の学びを自動的にwikiに書き出す仕組みが作れる。</p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+flowchart TB
+    subgraph triggers["🎯 トリガー"]
+      S["Stop hook<br/>セッション終了時"]
+      P["PostToolUse hook<br/>ファイル編集後"]
+      T["Scheduled Tasks<br/>定期実行"]
+    end
+
+    subgraph process["🔄 処理"]
+      E["知見を抽出"]
+      C["重複チェック"]
+      W["Markdownに整形"]
+    end
+
+    subgraph wiki["📚 Wiki"]
+      N["新規ノート作成"]
+      U["既存ノート更新"]
+      M["MOC/インデックス更新"]
+    end
+
+    S --> E
+    P --> E
+    T --> M
+    E --> C
+    C --> W
+    W --> N
+    W --> U
+
+    style triggers fill:#eff6ff,stroke:#3b82f6
+    style process fill:#f0fdf4,stroke:#22c55e
+    style wiki fill:#fef3c7,stroke:#f59e0b
+    </pre>
+    <p class="diagram-caption">図2: Claude Code → Wiki 自動書き込みパイプライン</p>
+  </div>
+
+  <h3>Stop hook: セッションの学びを自動保存</h3>
+
+  <p>最も実用的なのは<strong>Stop hook</strong>だ。<a class="cite" href="#src3">3<span class="cite-tooltip">Claude Code Hooks 公式ドキュメント</span></a> Claude Codeがレスポンスを完了するたびに発火し、そのセッションで学んだことや解決した問題をwikiに書き出せる。</p>
+
+  <pre><code>// .claude/settings.json
+{
+  "hooks": {
+    "Stop": [{
+      "hooks": [{
+        "type": "agent",
+        "prompt": "セッションの作業内容を要約し、wiki/に適切なMarkdownファイルとして書き出してください",
+        "timeout": 120
+      }]
+    }]
+  }
+}</code></pre>
+
+  <p><code>agent</code>タイプを使うのがポイント。サブエージェントがファイルシステムに直接アクセスして、Markdownファイルの作成・更新ができる。</p>
+
+  <h3>PostToolUse hook: 調査結果の自動保存</h3>
+
+  <p>Web検索やファイル編集の後に発火するhook。例えば新しいライブラリを調べた結果を、リサーチノートとして自動保存できる。<a class="cite" href="#src3">3<span class="cite-tooltip">Claude Code Hooks 公式ドキュメント</span></a></p>
+
+  <h3>Scheduled Tasks: 定期的な整理</h3>
+
+  <p>wikiは書くだけではカオスになる。<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Scheduled Tasks</span></a> 定期タスクで以下を自動実行する:</p>
+
+  <ul>
+    <li><strong>孤立ノートの検出</strong>: どこからもリンクされていないノートを発見</li>
+    <li><strong>MOC（目次ページ）の再生成</strong>: トピックごとのインデックスを最新化</li>
+    <li><strong>リンク切れの修復</strong>: ファイル名変更で壊れたリンクを修正</li>
+  </ul>
+
+  <!-- クイズ3 -->
+  <div class="quiz" data-answer="0">
+    <h4>🧠 理解チェック</h4>
+    <p>hookの<code>type: "agent"</code>を使う最大のメリットは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">サブエージェントがファイルシステムに直接アクセスしてファイル操作できる</li>
+      <li data-idx="1">実行速度が最も速い</li>
+      <li data-idx="2">API料金がかからない</li>
+    </ul>
+    <div class="quiz-explain">✅ <code>agent</code>タイプはサブエージェントを起動し、<code>Read</code>/<code>Write</code>/<code>Edit</code>でファイルを直接操作できます。<code>command</code>タイプ（シェルスクリプト）や<code>prompt</code>タイプ（判断のみ）より柔軟です。</div>
+  </div>
+</section>
+
+<!-- ── ディレクトリ設計 ── -->
+<section id="structure">
+  <h2>📂 AIが迷わないディレクトリ設計</h2>
+
+  <p>AIに「どのフォルダに書けばいい？」と毎回判断させるのは非効率。<strong>Zettelkasten原則</strong>（1ノート1アイデア）＋<strong>PARA法</strong>（行動可能性で分類）を組み合わせた構造が最適解だ。<a class="cite" href="#src5">5<span class="cite-tooltip">GRIDシステム — Zettelkasten整理法</span></a></p>
+
+  <div class="diagram-container">
+    <pre class="mermaid">
+graph TD
+    V["📁 vault/"]
+    V --> I["📥 00-inbox/<br/>未整理ノート"]
+    V --> P["🎯 01-projects/<br/>アクティブPJ"]
+    V --> A["🔄 02-areas/<br/>継続的関心"]
+    V --> R["📖 03-resources/<br/>リファレンス"]
+    V --> AR["📦 04-archive/<br/>完了・非アクティブ"]
+    V --> MOC["🗺️ _moc/<br/>自動生成インデックス"]
+    V --> T["📋 _templates/"]
+
+    I -.->|"AIが自動分類"| P
+    I -.->|"AIが自動分類"| A
+    I -.->|"AIが自動分類"| R
+
+    style I fill:#fef3c7,stroke:#f59e0b
+    style MOC fill:#dbeafe,stroke:#3b82f6
+    </pre>
+    <p class="diagram-caption">図3: PARA × Zettelkasten 混合ディレクトリ構造</p>
+  </div>
+
+  <p>ポイントは<strong><code>00-inbox/</code></strong>の存在。AIが書き出すノートはまず全部ここに入る。分類はAIが定期タスクで自動実行する。「書く」と「整理する」を分離することで、書き込みの判断コストをゼロにできる。</p>
+
+  <h3>フロントマターで構造化</h3>
+
+  <p>各ノートのYAMLフロントマターにメタデータを記録すれば、AIが後から自動で分類・検索・リンク生成できる:<a class="cite" href="#src6">6<span class="cite-tooltip">Claude Code Memory 公式ドキュメント</span></a></p>
+
+  <pre><code>---
+type: til          # today-i-learned
+domain: typescript
+tags: [generics, utility-types]
+created: 2025-03-25
+source: coding-session
+status: seed       # seed → fern → evergreen
+---</code></pre>
+
+  <p><code>status</code>フィールドの<strong>成熟度モデル</strong>（🌱seed → 🌿fern → 🌳evergreen）は、ノートの品質管理に有効。AIが定期的にリンク数や更新頻度を見て昇格させる。</p>
+</section>
+
+<!-- ── トレンド ── -->
+<section id="trends">
+  <h2>🔗 見えてきた3つのトレンド</h2>
+
+  <ol>
+    <li><strong>ローカルファースト＋AI</strong>: データ主権を保ちつつAIの恩恵を受ける流れが加速している。Obsidian CLI、MCP、ローカルRAGがその象徴。</li>
+    <li><strong>双方向フィードバックループ</strong>: AIがwikiを読んで文脈を得る → wikiに書いて知識を蓄積 → 次のセッションでさらに賢く。この循環がナレッジの質を向上させる。</li>
+    <li><strong>宣言的メタデータ</strong>: YAMLフロントマターによる構造化が、AIの自動分類・検索・リンク生成の鍵。</li>
+  </ol>
+</section>
+
+<!-- ── ロードマップ ── -->
+<section id="roadmap">
+  <h2>🚀 始め方ロードマップ</h2>
+
+  <p>全部を一度に作る必要はない。段階的に育てていくのがコツ。</p>
+
+  <ol class="steps">
+    <li><strong>今すぐ</strong>: Obsidianボールトを作成し、PARA構造のフォルダを初期化する。<code>CLAUDE.md</code>にwikiのパスを記載して、Claude Codeが認識できるようにする。</li>
+    <li><strong>Phase 1</strong>: Stop hookで「セッション終了時にTILノートを<code>00-inbox/</code>に自動生成」を実装する。<a class="cite" href="#src3">3<span class="cite-tooltip">Claude Code Hooks 公式ドキュメント</span></a></li>
+    <li><strong>Phase 2</strong>: PostToolUse hookで「Web検索結果 → リサーチノート自動生成」を追加する。</li>
+    <li><strong>Phase 3</strong>: Scheduled Tasksで「定期的なMOC自動生成・孤立ノート検出」を設定する。<a class="cite" href="#src4">4<span class="cite-tooltip">Claude Code Scheduled Tasks</span></a></li>
+    <li><strong>発展</strong>: MCP経由のObsidian検索統合で、wikiが「Claude Codeの長期記憶」として機能するようにする。</li>
+  </ol>
+
+  <div class="warn">
+    <strong>注意点</strong>: Stop hookは「Claudeが応答を完了するたび」に発火する。短い質問応答でもwiki書き込みが走らないよう、<code>type: "prompt"</code> hookで「書き込みに値するか」をフィルタリングする設計が重要。
+  </div>
+
+  <!-- 最終クイズ -->
+  <div class="quiz" data-answer="2">
+    <h4>🧠 総まとめクイズ</h4>
+    <p>「AIが自動でwikiを育てる」仕組みの3本柱として正しい組み合わせは？</p>
+    <ul class="quiz-options">
+      <li data-idx="0">Notion + API + クラウドDB</li>
+      <li data-idx="1">MkDocs + GitHub Actions + 静的サイト</li>
+      <li data-idx="2">Obsidian + Claude Code Hooks + Zettelkasten構造</li>
+    </ul>
+    <div class="quiz-explain">✅ 正解！ Obsidian（ローカルMarkdown）＋ Claude Code Hooks（自動書き込みトリガー）＋ Zettelkasten構造（AI向き整理法）の3本柱です。</div>
+  </div>
+</section>
+
+<!-- ── 出典 ── -->
+<section class="sources" id="sources">
+  <h2>📚 出典・参考資料</h2>
+  <ul>
+    <li id="src1"><span class="source-num">1</span><a href="https://blog.starmorph.com/blog/obsidian-claude-code-integration-guide" target="_blank" rel="noopener">Obsidian + Claude Code 統合ガイド</a></li>
+    <li id="src2"><span class="source-num">2</span><a href="https://github.com/kepano/obsidian-skills" target="_blank" rel="noopener">kepano/obsidian-skills (GitHub)</a></li>
+    <li id="src3"><span class="source-num">3</span><a href="https://code.claude.com/docs/en/hooks-guide" target="_blank" rel="noopener">Claude Code Hooks 公式ドキュメント</a></li>
+    <li id="src4"><span class="source-num">4</span><a href="https://code.claude.com/docs/en/scheduled-tasks" target="_blank" rel="noopener">Claude Code Scheduled Tasks</a></li>
+    <li id="src5"><span class="source-num">5</span><a href="https://tjex.net/posts/zettelkasten-grid-system-organisation/" target="_blank" rel="noopener">GRIDシステム — Zettelkasten整理法</a></li>
+    <li id="src6"><span class="source-num">6</span><a href="https://code.claude.com/docs/en/memory" target="_blank" rel="noopener">Claude Code Memory 公式ドキュメント</a></li>
+    <li id="src7"><span class="source-num">7</span><a href="https://deepwiki.com/thedotmack/claude-mem" target="_blank" rel="noopener">claude-mem: セッション自動サマリーOSS</a></li>
+  </ul>
+</section>
+
+<div class="article-footer">
+  <p>この記事はリサーチデータをもとに Claude Code が自動生成しました</p>
+</div>
+
+</article>
+</div><!-- /.layout -->
+
+<script>
+// クイズ機能
+document.querySelectorAll('.quiz').forEach(quiz => {
+  const answer = parseInt(quiz.dataset.answer);
+  const explain = quiz.querySelector('.quiz-explain');
+  quiz.querySelectorAll('.quiz-options li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.idx);
+      quiz.querySelectorAll('.quiz-options li').forEach(l => l.style.pointerEvents = 'none');
+      if (idx === answer) {
+        li.classList.add('correct');
+      } else {
+        li.classList.add('wrong');
+        quiz.querySelector(`[data-idx="${answer}"]`).classList.add('correct');
+      }
+      explain.style.display = 'block';
+    });
+  });
+});
+
+// サイドバー目次: 開閉トグル
+const toc = document.getElementById('toc');
+const tocToggle = document.getElementById('tocToggle');
+const tocClose = document.getElementById('tocClose');
+
+tocToggle.addEventListener('click', () => {
+  toc.classList.remove('collapsed');
+  tocToggle.classList.add('hidden');
+});
+tocClose.addEventListener('click', () => {
+  toc.classList.add('collapsed');
+  tocToggle.classList.remove('hidden');
+});
+
+// 目次リンククリックでモバイル時は閉じる
+toc.querySelectorAll('a').forEach(a => {
+  a.addEventListener('click', () => {
+    if (window.innerWidth <= 900) {
+      toc.classList.add('collapsed');
+      tocToggle.classList.remove('hidden');
+    }
+  });
+});
+
+// スクロール追従ハイライト
+const tocLinks = document.querySelectorAll('.toc a');
+const sections = Array.from(tocLinks).map(a => document.querySelector(a.getAttribute('href')));
+
+function updateToc() {
+  let current = 0;
+  sections.forEach((sec, i) => {
+    if (sec && sec.getBoundingClientRect().top < 120) current = i;
+  });
+  tocLinks.forEach((a, i) => a.classList.toggle('active', i === current));
+}
+window.addEventListener('scroll', updateToc);
+updateToc();
+
+// iframe高さ通知
+function notifyHeight() {
+  const h = document.documentElement.scrollHeight;
+  window.parent.postMessage({ type: 'resize', height: h }, '*');
+}
+window.addEventListener('load', () => { setTimeout(notifyHeight, 500); });
+window.addEventListener('resize', notifyHeight);
+new MutationObserver(notifyHeight).observe(document.body, { childList: true, subtree: true });
+</script>
+</body>
+</html>

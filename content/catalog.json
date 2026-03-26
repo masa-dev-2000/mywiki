@@ -7,7 +7,7 @@
       "tags": ["AI", "PKM", "Claude Code", "Obsidian"],
       "description": "Claude Codeのhooks機能で個人wikiを自動構築する方法。ツール比較、ワークフロー設計、将来展望まで。",
       "status": "evergreen",
-      "path": "personal-wiki-claude-code/slides.html"
+      "path": "personal-wiki-claude-code/article.html"
     },
     {
       "id": "claude-code-productivity",
